@@ -16,31 +16,33 @@ contexts:
       scope: support.function.cisco
     - match: 'crypto '
       scope: string.unquoted.cisco
-    - match: any
+    - match: 'any'
       scope: string.unquoted.cisco
     - match: 'deny '
       scope: support.constant.cisco
     - match: 'permit '
       scope: constant.character.escape.cisco
-    - match: object-group
+    - match: 'object-group '
       scope: markup.list.cisco
-    - match: object
+    - match: 'object '
       scope: markup.list.cisco
-    - match: host
+    - match: 'host'
       scope: markup.list.cisco
     - match: '^[\s]*!(.*)'
       scope: comment.cisco
-    - match: static
+    - match: 'static'
       scope: constant.numeric.cisco
-    - match: tunnel-group
+    - match: 'tunnel-group'
       scope: support.class.cisco
-    - match: crypto
+    - match: 'crypto'
       scope: support.class.cisco
     - match: '\d+\.\d+\.\d+\.\d+(/\d{1,2})?'
       scope: constant.numeric.cisco
     - match: '[0-9a-fA-F]{0,4}:([0-9a-fA-F]{0,4}:)+[0-9a-fA-F]{0,4}(/\d{1,3})?'
       scope: constant.numeric.cisco
-    - match: '\b(INVITE|OPTIONS|User-Agent|REFER|PRACK|CANCEL|ACK|BYE|INFO|SUBSCRIBE|NOTIFY|UPDATE|REGISTER)\b'
-      scope: keyword.custom.highlight
-    - match: '\b(InResponseTo|AuthnRequest|AssertionConsumerService|idpEntityID|SingleSignOnService|spEntityID|Dial-peer=|mwiTargetDn|maxDeskPickupWaitTime|MTPNeededDueToDTMFCapMismatch|DATransformMatch|RequestXmfConnectionMediaForking|SoftKeyEvent|NotifyXmfConnectionData|C_MediaFork_Start|MEDIAFORK_Prepare_MediaEstablishedDone|MEDIAFORK_Start_StartDone|cc_api_call_disconnected)\b'
-      scope: keyword.custom.highlightBlack
+    - match: '\b(INVITE|OPTIONS|User-Agent|REFER|PRACK|CANCEL|ACK|BYE|INFO|SUBSCRIBE|NOTIFY|UPDATE|REGISTER|CcT302ToInd|[csf.voicemail])\b'
+      scope: string
+    - match: '\b(InResponseTo|AuthnRequest|AssertionConsumerService|idpEntityID|SingleSignOnService|No matching outgoing dial-peer|spEntityID|Incoming Dial-peer=|Outgoing Dial-peer=|mwiTargetDn|maxDeskPickupWaitTime|MTPNeededDueToDTMFCapMismatch|DATransformMatch|RequestXmfConnectionMediaForking|SoftKeyEvent|NotifyXmfConnectionData|C_MediaFork_Start|MEDIAFORK_Prepare_MediaEstablishedDone|MEDIAFORK_Start_StartDone|cc_api_call_disconnected)\b'
+      scope: constant.language.null 
+    - match: '\b(Failed|Error|ERROR|failed|fail|error|XcoderRequired|ccDisconnReq.cv|mismatch!|)\b'
+      scope: invalid
