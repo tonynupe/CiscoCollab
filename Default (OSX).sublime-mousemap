@@ -1,8 +1,0 @@
-[
-  {
-    "button": "button1",
-    "count": 1,
-    "modifiers": ["ctrl"],
-    "press_command": "toggle_bookmark"
-  }
-]
