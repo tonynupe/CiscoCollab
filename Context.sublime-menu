@@ -1,7 +1,7 @@
 [
     { "caption": "-" },
     {
-        "caption": "Style Token",
+        "caption": "Style Options",
         "children": [
         {
             "caption": "Style 1",
@@ -48,11 +48,11 @@
             "command": "token_style_clear"
         },
         {
-            "caption": "Jump to next token",
+            "caption": "Jump to next",
             "command": "token_style_go"
         },
         {
-            "caption": "Jump to prev token",
+            "caption": "Jump to previous",
             "command": "token_style_go_back"
         },
         {
