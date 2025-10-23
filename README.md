@@ -9,6 +9,7 @@ Custom syntax with automated and manual highlight of keywords in Cisco Collabora
 - Optimized for YAML, SIP, and Cisco-style syntax
 - Modular design for easy extension and reuse
 - Mouse binding for quick bookmarking (to be added manually)
+- Extraction tool for nested files supporting ".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".tar.gz"
 
 ## Create a new file with the name "Default (OSX).sublime-mousemap" for Mac and save it into this User/ folder; use "Default (Windows).sublime-mousemap" for Windows
 ## Content:
