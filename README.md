@@ -11,6 +11,7 @@ Custom syntax with automated and manual highlight of keywords in Cisco Collabora
 - Mouse binding for quick bookmarking (to be added manually)
 - Extraction tool for nested files supporting ".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".tar.gz"
 - The Extract tool has been added to the side bar menu, When selecting a compressed file, right click on the file and select "Extract"
+- Persistent highlights introduced to the plugin, this will preserved highlighted words upon closure of the app
 
 ## Create a new file with the name "Default (OSX).sublime-mousemap" for Mac and save it into this User/ folder; use "Default (Windows).sublime-mousemap" for Windows
 ## Content:
