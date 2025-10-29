@@ -26,10 +26,10 @@ class ExtractAnyArchiveCommand(sublime_plugin.WindowCommand):
                 # Borra el archivo original principal
                 os.remove(path)
                 
-                sublime.message_dialog(f"Archivo extraído en:\n{extract_path}")
+                sublime.message_dialog(f"File Extracted in:\n{extract_path}")
 
             except Exception as e:
-                sublime.error_message(f"Error al extraer {os.path.basename(path)}:\n{e}")
+                sublime.error_message(f"Error during extraction {os.path.basename(path)}:\n{e}")
 
     # ← Aquí la indentación correcta: 1 nivel dentro de la clase
     def remove_macosx_folder(self, extract_path):
