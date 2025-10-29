@@ -46,7 +46,7 @@ contexts:
       scope: constant.numeric.cisco
     - match: '\bparty[12]DTMF\([^()]*\([^()]*\)[^()]*\)|party[12]DTMF\([^()]*\)'
       scope: support.constant.dtmf.cisco
-    - match: '\b(INVITE|OPTIONS|User-Agent|REFER|PRACK|CANCEL|ACK|BYE|INFO|SUBSCRIBE|NOTIFY|UPDATE|REGISTER|CcT302ToInd|SdlSig-I|SdlSig-O|[csf.voicemail]|[csf.cert.utils]|[csf.voicemail]|spEntityID|idpEntityID|AuthnRequest|SPACSUtils:getResponseFromPost)\b'
+    - match: '\b(INVITE|OPTIONS|User-Agent|REFER|PRACK|CANCEL|ACK|BYE|INFO|SUBSCRIBE|NOTIFY|UPDATE|REGISTER|CcT302ToInd|SdlSig-I|SdlSig-O|[csf.voicemail]|[csf.cert.utils]|[csf.voicemail]|[csf.httpclient]|spEntityID|idpEntityID|AuthnRequest|SPACSUtils:getResponseFromPost)\b'
       scope: string
     - match: '\b(InResponseTo|AuthnRequest|AssertionConsumerService|idpEntityID|SingleSignOnService|No matching outgoing dial-peer|spEntityID|Incoming Dial-peer=|Outgoing Dial-peer=|mwiTargetDn|maxDeskPickupWaitTime|MTPNeededDueToDTMFCapMismatch|DATransformMatch|RequestXmfConnectionMediaForking|SoftKeyEvent|NotifyXmfConnectionData|C_MediaFork_Start|MEDIAFORK_Prepare_MediaEstablishedDone|MEDIAFORK_Start_StartDone|cc_api_call_disconnected)\b'
       scope: constant.language.null 
