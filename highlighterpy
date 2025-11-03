@@ -1,18 +1,41 @@
 import sublime, sublime_plugin
 import re
 
-REGION_NAME = 'StyleTokenListener%d'
+REGION_NAME = 'StyleOptionsListener%d'
 MAX_STYLES = 10
-REGION_STORE = 'StyleTokenRegions.sublime-settings'
-cs_settings = None
+REGION_STORE = 'StyleOptionsRegions.sublime-settings'
 
-# Load plugin settings
-def plugin_loaded():
-    global cs_settings
-    cs_settings = sublime.load_settings('StyleToken.sublime-settings')
+# Built-in scopes that will render with distinct colors in most themes
+STYLE_MAP = {
+    0: "support.function",       # blue
+    1: "string",                 # green
+    2: "constant.numeric",       # orange
+    3: "comment",                # gray
+    4: "variable",               # white/light
+    5: "entity.name.function",   # yellow
+    6: "storage.type",           # cyan/blue-green
+    7: "markup.raw.inline",      # green highlight
+    8: "markup.deleted",         # red
+    9: "diff.deleted.char",      # bright distinct (often bold yellow/white)
+}
 
-# Helper class for persistent region storage
-class StyleTokenStorage:
+
+# Distinct draw styles for each index
+STYLE_FLAGS = {
+    0: sublime.DRAW_NO_OUTLINE,          # solid background
+    1: sublime.DRAW_SOLID_UNDERLINE,     # underline
+    2: sublime.DRAW_STIPPLED_UNDERLINE,  # dotted underline
+    3: sublime.DRAW_NO_OUTLINE,             # outline only
+    4: sublime.DRAW_NO_OUTLINE,          # background
+    5: sublime.DRAW_SOLID_UNDERLINE,     # underline
+    6: sublime.DRAW_NO_OUTLINE,          # background
+    7: sublime.DRAW_NO_OUTLINE,          # background
+    8: sublime.DRAW_STIPPLED_UNDERLINE,  # dotted underline
+    9: sublime.DRAW_NO_OUTLINE,          # background
+}
+
+# Persistent region storage
+class StyleOptionsStorage:
     def __init__(self, view):
         self.view = view
         self.key = view.file_name() or str(view.id())
@@ -31,10 +54,16 @@ class StyleTokenStorage:
         for key, region_list in data.items():
             try:
                 style_ind = int(re.search(r'\d+', key).group())
-            except:
+            except Exception:
                 continue
             regions = [sublime.Region(a, b) for a, b in region_list]
-            self.view.add_regions(key, regions, str(get_style(style_ind)), '')
+            self.view.add_regions(
+                key,
+                regions,
+                get_style(style_ind),
+                '',  # no gutter icon
+                STYLE_FLAGS.get(style_ind, sublime.DRAW_NO_OUTLINE)
+            )
 
     def clear(self):
         for style in range(MAX_STYLES):
@@ -46,7 +75,7 @@ def rollover(style_index):
     return style_index % MAX_STYLES
 
 def get_style(style_ind):
-    return cs_settings.get('styletoken_style%d' % (style_ind + 1), 'invalid')
+    return STYLE_MAP.get(style_ind, "invalid")
 
 def get_current_regions(view, style_index):
     if style_index < 0:
@@ -73,7 +102,7 @@ def color_selection(view, style_ind):
                 continue
         literal = view.substr(region)
         escaped = re.escape(literal)
-        if whole_word_only and escaped[0].isalnum():
+        if whole_word_only and escaped and escaped[0].isalnum():
             escaped = r'\b%s\b' % escaped
         tokens.add(escaped)
 
@@ -82,16 +111,22 @@ def color_selection(view, style_ind):
             current_regions.extend(view.find_all(literal, sublime.LITERAL))
         else:
             current_regions.extend(view.find_all('|'.join(tokens)))
-        view.add_regions(REGION_NAME % style_ind, current_regions, str(get_style(style_ind)), '')
-        StyleTokenStorage(view).save()
+        view.add_regions(
+            REGION_NAME % style_ind,
+            current_regions,
+            get_style(style_ind),
+            '',  # no gutter icon
+            STYLE_FLAGS.get(style_ind, sublime.DRAW_NO_OUTLINE)
+        )
+        StyleOptionsStorage(view).save()
 
 # Commands
-class TokenStyleCommand(sublime_plugin.TextCommand):
+class StyleOptionsCommand(sublime_plugin.TextCommand):
     def run(self, edit, style_index):
         color_selection(self.view, rollover(style_index))
-        StyleTokenStorage(self.view).save()
+        StyleOptionsStorage(self.view).save()
 
-class TokenStyleGoCommand(sublime_plugin.TextCommand):
+class StyleOptionsGoCommand(sublime_plugin.TextCommand):
     def run(self, edit, style_index=-1):
         view = self.view
         current_regions = get_current_regions(view, style_index)
@@ -105,7 +140,7 @@ class TokenStyleGoCommand(sublime_plugin.TextCommand):
                         return
             move_selection(view, current_regions[0])
 
-class TokenStyleGoBackCommand(sublime_plugin.TextCommand):
+class StyleOptionsGoBackCommand(sublime_plugin.TextCommand):
     def run(self, edit, style_index=-1):
         view = self.view
         current_regions = get_current_regions(view, style_index)
@@ -119,25 +154,28 @@ class TokenStyleGoBackCommand(sublime_plugin.TextCommand):
                         return
             move_selection(view, current_regions[-1])
 
-class TokenStyleClearCommand(sublime_plugin.TextCommand):
+class StyleOptionsClearCommand(sublime_plugin.TextCommand):
     def run(self, edit, style_index=-1):
         if style_index < 0:
-            StyleTokenStorage(self.view).clear()
+            # Clear all styles
+            StyleOptionsStorage(self.view).clear()
+            sublime.status_message("Style Options: All highlights cleared.")
         else:
+            # Clear only the given style
             self.view.erase_regions(REGION_NAME % rollover(style_index))
-            StyleTokenStorage(self.view).save()
+            StyleOptionsStorage(self.view).save()
+            sublime.status_message("Style Options: Cleared Style %d" % (style_index + 1))
 
-class TokenStyleSaveCommand(sublime_plugin.TextCommand):
+class StyleOptionsSaveCommand(sublime_plugin.TextCommand):
     def run(self, edit):
-        StyleTokenStorage(self.view).save()
-        sublime.status_message("StyleToken: Highlights saved.")
+        StyleOptionsStorage(self.view).save()
+        sublime.status_message("Style Options: Highlights saved.")
 
 # Event listener for restoration
-class StyleTokenListener(sublime_plugin.EventListener):
+class StyleOptionsListener(sublime_plugin.EventListener):
     def on_load(self, view):
-        StyleTokenStorage(view).restore()
+        StyleOptionsStorage(view).restore()
 
     def on_activated(self, view):
-        # Restore only if regions are missing
         if not any(view.get_regions(REGION_NAME % i) for i in range(MAX_STYLES)):
-            StyleTokenStorage(view).restore()
+            StyleOptionsStorage(view).restore()
