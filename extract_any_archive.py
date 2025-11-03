@@ -77,11 +77,14 @@ class ExtractAnyArchiveCommand(sublime_plugin.WindowCommand):
                     except Exception:
                         pass
 
-    def is_visible(self, paths=[]):
-        if len(paths) != 1:
-            return False
-        ext = os.path.splitext(paths[0])[1].lower()
-        return ext in [".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".tar.gz"]
+def is_visible(self, paths=[]):
+    if not paths:
+        return False
+    if len(paths) != 1:
+        return False
+    ext = os.path.splitext(paths[0])[1].lower()
+    return ext in [".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".tar.gz"]
 
-    def is_enabled(self, paths=[]):
-        return self.is_visible(paths)
+def is_enabled(self, paths=[]):
+    return self.is_visible(paths)
+
