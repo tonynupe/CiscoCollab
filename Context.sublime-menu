@@ -1,63 +1,24 @@
 [
-    { "caption": "-" },
     {
         "caption": "Style Options",
         "children": [
-        {
-            "caption": "Style 1",
-            "command": "token_style", "args" : {"style_index" : 0}
-        },
-        {
-            "caption": "Style 2",
-            "command": "token_style", "args" : {"style_index" : 1}
-        },
-        {
-            "caption": "Style 3",
-            "command": "token_style", "args" : {"style_index" : 2}
-        },
-        {
-            "caption": "Style 4",
-            "command": "token_style", "args" : {"style_index" : 3}
-        },
-        {
-            "caption": "Style 5",
-            "command": "token_style", "args" : {"style_index" : 4}
-        },
-        {
-            "caption": "Style 6",
-            "command": "token_style", "args" : {"style_index" : 5}
-        },
-        {
-            "caption": "Style 7",
-            "command": "token_style", "args" : {"style_index" : 6}
-        },
-        {
-            "caption": "Style 8",
-            "command": "token_style", "args" : {"style_index" : 7}
-        },
-        {
-            "caption": "Style 9",
-            "command": "token_style", "args" : {"style_index" : 8}
-        },
-        {
-            "caption": "Style 10",
-            "command": "token_style", "args" : {"style_index" : 9}
-        },
-        {
-            "caption": "Clear All",
-            "command": "token_style_clear"
-        },
-        {
-            "caption": "Jump to next",
-            "command": "token_style_go"
-        },
-        {
-            "caption": "Jump to previous",
-            "command": "token_style_go_back"
-        },
-        {
-            "caption": "-"
-        }
-       ]
+            { "caption": "Style 1", "command": "style_options", "args": {"style_index": 0} },
+            { "caption": "Style 2", "command": "style_options", "args": {"style_index": 1} },
+            { "caption": "Style 3", "command": "style_options", "args": {"style_index": 2} },
+            { "caption": "Style 4", "command": "style_options", "args": {"style_index": 3} },
+            { "caption": "Style 5", "command": "style_options", "args": {"style_index": 4} },
+            { "caption": "Style 6", "command": "style_options", "args": {"style_index": 5} },
+            { "caption": "Style 7", "command": "style_options", "args": {"style_index": 6} },
+            { "caption": "Style 8", "command": "style_options", "args": {"style_index": 7} },
+            { "caption": "Style 9", "command": "style_options", "args": {"style_index": 8} },
+            { "caption": "Style 10", "command": "style_options", "args": {"style_index": 9} },
+            { "caption": "-" },
+            { "caption": "Go to Next", "command": "style_options_go" },
+            { "caption": "Go to Previous", "command": "style_options_go_back" },
+            { "caption": "-" },
+            { "caption": "Clear All", "command": "style_options_clear", "args": {"style_index": -1} },
+            { "caption": "Save Highlights", "command": "style_options_save" }
+        ]
     }
 ]
+
