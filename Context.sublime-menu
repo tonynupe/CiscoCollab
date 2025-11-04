@@ -1,34 +1,40 @@
 [
     {
-        "caption": "Style Options",
+        "caption": "Highlights",
         "children": [
-            { "caption": "Style 1", "command": "style_options", "args": {"style_index": 0} },
-            { "caption": "Style 2", "command": "style_options", "args": {"style_index": 1} },
-            { "caption": "Style 3", "command": "style_options", "args": {"style_index": 2} },
-            { "caption": "Style 4", "command": "style_options", "args": {"style_index": 3} },
-            { "caption": "Style 5", "command": "style_options", "args": {"style_index": 4} },
-            { "caption": "Style 6", "command": "style_options", "args": {"style_index": 5} },
-            { "caption": "Style 7", "command": "style_options", "args": {"style_index": 6} },
-            { "caption": "Style 8", "command": "style_options", "args": {"style_index": 7} },
-            { "caption": "Style 9", "command": "style_options", "args": {"style_index": 8} },
-            { "caption": "Style 10", "command": "style_options", "args": {"style_index": 9} },
+            { "caption": "Highlight 1", "command": "style_options", "args": {"style_index": 0} },
+            { "caption": "Highlight 2", "command": "style_options", "args": {"style_index": 1} },
+            { "caption": "Highlight 3", "command": "style_options", "args": {"style_index": 2} },
+            { "caption": "Highlight 4", "command": "style_options", "args": {"style_index": 3} },
+            { "caption": "Highlight 5", "command": "style_options", "args": {"style_index": 4} },
+            { "caption": "Highlight 6", "command": "style_options", "args": {"style_index": 5} },
+            { "caption": "Highlight 7", "command": "style_options", "args": {"style_index": 6} },
+            { "caption": "Highlight 8", "command": "style_options", "args": {"style_index": 7} },
+            { "caption": "Highlight 9", "command": "style_options", "args": {"style_index": 8} },
+            { "caption": "Highlight 10", "command": "style_options", "args": {"style_index": 9} },
             { "caption": "-" },
-            { "caption": "Go to Next", "command": "style_options_go" },
-            { "caption": "Go to Previous", "command": "style_options_go_back" },
+            { "caption": "Go to Next Highlight", "command": "style_options_go" },
+            { "caption": "Go to Previous Highlight", "command": "style_options_go_back" },
             { "caption": "-" },
-            { "caption": "Clear Style 1", "command": "style_options_clear", "args": {"style_index": 0} },
-            { "caption": "Clear Style 2", "command": "style_options_clear", "args": {"style_index": 1} },
-            { "caption": "Clear Style 3", "command": "style_options_clear", "args": {"style_index": 2} },
-            { "caption": "Clear Style 4", "command": "style_options_clear", "args": {"style_index": 3} },
-            { "caption": "Clear Style 5", "command": "style_options_clear", "args": {"style_index": 4} },
-            { "caption": "Clear Style 6", "command": "style_options_clear", "args": {"style_index": 5} },
-            { "caption": "Clear Style 7", "command": "style_options_clear", "args": {"style_index": 6} },
-            { "caption": "Clear Style 8", "command": "style_options_clear", "args": {"style_index": 7} },
-            { "caption": "Clear Style 9", "command": "style_options_clear", "args": {"style_index": 8} },
-            { "caption": "Clear Style 10", "command": "style_options_clear", "args": {"style_index": 9} },
-            { "caption": "-" },
-            { "caption": "Clear All", "command": "style_options_clear", "args": {"style_index": -1} },
             { "caption": "Save Highlights", "command": "style_options_save" }
+        ]
+    },
+
+    {
+        "caption": "Clear Highlights",
+        "children": [
+            { "caption": "Clear Highlight 1", "command": "style_options_clear", "args": {"style_index": 0} },
+            { "caption": "Clear Highlight 2", "command": "style_options_clear", "args": {"style_index": 1} },
+            { "caption": "Clear Highlight 3", "command": "style_options_clear", "args": {"style_index": 2} },
+            { "caption": "Clear Highlight 4", "command": "style_options_clear", "args": {"style_index": 3} },
+            { "caption": "Clear Highlight 5", "command": "style_options_clear", "args": {"style_index": 4} },
+            { "caption": "Clear Highlight 6", "command": "style_options_clear", "args": {"style_index": 5} },
+            { "caption": "Clear Highlight 7", "command": "style_options_clear", "args": {"style_index": 6} },
+            { "caption": "Clear Highlight 8", "command": "style_options_clear", "args": {"style_index": 7} },
+            { "caption": "Clear Highlight 9", "command": "style_options_clear", "args": {"style_index": 8} },
+            { "caption": "Clear Highlight 10", "command": "style_options_clear", "args": {"style_index": 9} },
+            { "caption": "-" },
+            { "caption": "Clear All Highlights", "command": "style_options_clear", "args": {"style_index": -1} }
         ]
     }
 ]
