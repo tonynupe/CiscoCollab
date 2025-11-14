@@ -1,6 +1,5 @@
 %YAML 1.2
 ---
-# http://www.sublimetext.com/docs/syntax.html
 name: Cisco
 file_extensions:
   - cfg
@@ -46,7 +45,7 @@ contexts:
       scope: constant.numeric.cisco
     - match: '\bparty[12]DTMF\([^()]*\([^()]*\)[^()]*\)|party[12]DTMF\([^()]*\)'
       scope: support.constant.dtmf.cisco
-    - match: '\b(MTPInsertionReason)/b'
+    - match: '\b(MTPInsertionReason)\b'
       scope: support.constant.dtmf.cisco
     - match: '\b(INVITE|OPTIONS|User-Agent|REFER|PRACK|CANCEL|ACK|BYE|INFO|SUBSCRIBE|NOTIFY|UPDATE|REGISTER|CcT302ToInd|SdlSig-I|SdlSig-O|[csf.voicemail]|[csf.cert.utils]|[csf.voicemail]|[csf.httpclient]|spEntityID|idpEntityID|AuthnRequest|SPACSUtils:getResponseFromPost)\b'
       scope: string
@@ -55,3 +54,10 @@ contexts:
     - match: '\b(Failed|Error|ERROR|failed|fail|error|XcoderRequired|ccDisconnReq.cv|mismatch!|CcT302ToInd|StationT302)\b'
       scope: invalid
 
+    # EOL highlighter for CSG processes
+    - match: '\*-----\*'
+      scope: support.constant.dtmf.cisco
+      push:
+        - meta_scope: support.constant.dtmf.cisco
+        - match: '\n'
+          pop: true
