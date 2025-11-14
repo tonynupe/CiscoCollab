@@ -1,4 +1,6 @@
 import re
+import sublime
+import sublime_plugin
 
 def explain_enum(category, value):
     enums = {
@@ -162,10 +164,28 @@ def format_popup(title, items):
         key = label.split()[0]
         grouped.setdefault(key, []).append((label, value))
 
-    html = f"<b>{''}</b><br><div style='white-space: pre; font-family: monospace;'>"
+    html = f"<b>{title}</b><br><div style='white-space: pre; font-family: monospace;'>"
     for group, entries in grouped.items():
         html += f"\n🔹 <b>{group}</b>\n"
         for label, value in entries:
             icon = "📞" if "DTMF" in label else "🔧"
             html += f"   {icon} {label.split(':')[0].replace(group, '').strip()}: {value}\n"
+    html += "</div>"
     return html
+
+class CucmHoverListener(sublime_plugin.EventListener):
+    def on_hover(self, view, point, hover_zone):
+        if hover_zone != sublime.HOVER_TEXT:
+            return
+
+        line = view.substr(view.line(point))
+        results = {}
+
+        for parser in [parse_dtmf_block, parse_mtp_block, parse_xfermode_block]:
+            parsed = parser(line)
+            if parsed:
+                results.update(parsed)
+
+        if results:
+            html = format_popup("📡 CUCM Trace Info", results)
+            view.show_popup(html, location=point, max_width=600)
