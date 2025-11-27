@@ -9,11 +9,11 @@
                 "caption": "-"
             },
             {
-                "caption": "Extract Nested - Copiar ruta",
+                "caption": "Extract using Path",
                 "command": "extract_nested_input"
             },
             {
-                "caption": "Extract Nested - Seleccionar archivo",
+                "caption": "Extract browsing file",
                 "command": "extract_nested_browse"
             }
         ]
