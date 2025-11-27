@@ -1,0 +1,21 @@
+[
+    {
+        "caption": "Tools",
+        "mnemonic": "T",
+        "id": "tools",
+        "children":
+        [
+            {
+                "caption": "-"
+            },
+            {
+                "caption": "Extract Nested - Copiar ruta",
+                "command": "extract_nested_input"
+            },
+            {
+                "caption": "Extract Nested - Seleccionar archivo",
+                "command": "extract_nested_browse"
+            }
+        ]
+    }
+]
