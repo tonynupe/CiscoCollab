@@ -1,7 +1,6 @@
 [
-{
-"caption": "Extract Files",
-"command": "ExtractAnyArchive",
-"args": {"paths": []}
-}
+    {
+        "caption": "Extract Files",
+        "command": "extract_any_archive"
+    }
 ]
