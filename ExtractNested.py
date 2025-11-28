@@ -48,6 +48,11 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
             
             sublime.status_message("Extraccion completada en: " + output_dir)
             self.show_in_finder(output_dir)
+            # Agregar al sidebar si está habilitado
+            try:
+                self.add_to_sidebar(output_dir)
+            except Exception:
+                pass
             
         except Exception as e:
             sublime.error_message("Error: " + str(e))
@@ -147,6 +152,30 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
                 os.remove(file_path)
         except Exception as e:
             pass
+    
+    def add_to_sidebar(self, directory):
+        """Agrega la carpeta extraída al sidebar de Sublime si no está ya añadida"""
+        try:
+            settings = sublime.load_settings("ExtractNested.sublime-settings")
+            if not settings.get("add_to_sidebar", True):
+                return
+
+            # Normalizar ruta
+            directory = os.path.abspath(directory)
+            existing = [os.path.abspath(p) for p in self.window.folders()]
+            if directory in existing:
+                print('[ExtractNested] Carpeta ya presente en el sidebar:', directory)
+                return
+
+            # Intentar añadir la carpeta al sidebar
+            try:
+                self.window.run_command('add_folder', { 'dir': directory })
+                print('[ExtractNested] Carpeta añadida al sidebar:', directory)
+            except Exception:
+                # Fallback: abrir un panel con la ruta para que el usuario la añada manualmente
+                print('[ExtractNested] No se pudo añadir automáticamente la carpeta al sidebar')
+        except Exception as e:
+            print('[ExtractNested] Error añadiendo carpeta al sidebar:', str(e))
     
     def clean_macosx_folder(self, directory):
         """Elimina la carpeta __MACOSX creada por macOS en archivos ZIP"""
