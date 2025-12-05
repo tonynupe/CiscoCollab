@@ -173,7 +173,7 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
         tell application "System Events"
             activate
             try
-                set theFile to choose file with prompt "Selecciona un archivo comprimido:" of type {"com.pkware.zip-archive", "public.tar-archive", "org.gnu.gnu-zip-archive"}
+                set theFile to choose file with prompt "Select a compressed file:" of type {"com.pkware.zip-archive", "public.tar-archive", "org.gnu.gnu-zip-archive"}
                 return POSIX path of theFile
             on error
                 return ""
@@ -204,7 +204,7 @@ class ExtractNestedInputCommand(sublime_plugin.WindowCommand):
     def run(self):
         """Muestra input panel para la ruta"""
         self.window.show_input_panel(
-            "Ruta del archivo comprimido:",
+            "Path of compressed file:",
             "",
             self.on_done,
             None,
