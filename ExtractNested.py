@@ -17,7 +17,6 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
     """
     
     def run(self, paths=None):
-        """Ejecuta el comando de extracción"""
         if not paths:
             self.window.run_command("extract_nested_input")
         else:
@@ -28,11 +27,9 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
                     thread.start()
     
     def is_compressed_file(self, path):
-        """Verifica si el archivo es un formato comprimido soportado"""
         return path.endswith(('.zip', '.tar', '.tar.gz', '.tgz', '.gz'))
     
     def extract_file(self, file_path):
-        """Extrae archivos comprimidos y busca archivos anidados"""
         try:
             output_dir = self.get_output_directory(file_path)
             sublime.status_message("Extrayendo: " + os.path.basename(file_path))
@@ -40,10 +37,7 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
             self.extract_to_directory(file_path, output_dir)
             self.extract_nested_files(output_dir)
             
-            # Eliminar archivo comprimido después de extraerlo exitosamente
             self.delete_compressed_file(file_path)
-            
-            # Limpiar carpeta __MACOSX si existe
             self.clean_macosx_folder(output_dir)
             
             sublime.status_message("Extraccion completada en: " + output_dir)
@@ -53,7 +47,6 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
             sublime.error_message("Error: " + str(e))
     
     def get_output_directory(self, file_path):
-        """Crea directorio de salida basado en el nombre del archivo"""
         base_name = os.path.basename(file_path)
         clean_name = base_name.replace('.tar.gz', '').replace('.tgz', '').replace('.tar', '').replace('.zip', '').replace('.gz', '')
         
@@ -64,7 +57,6 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
         return output_dir
     
     def extract_to_directory(self, file_path, output_dir):
-        """Extrae un archivo comprimido al directorio especificado"""
         if file_path.endswith('.zip'):
             self.extract_zip(file_path, output_dir)
         elif file_path.endswith(('.tar.gz', '.tgz')):
@@ -75,35 +67,30 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
             self.extract_gz(file_path, output_dir)
     
     def extract_zip(self, zip_path, output_dir):
-        """Extrae archivo ZIP"""
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(output_dir)
     
     def extract_tar(self, tar_path, output_dir):
-        """Extrae archivo TAR"""
         with tarfile.open(tar_path, 'r') as tar_ref:
             tar_ref.extractall(output_dir)
     
     def extract_tar_gz(self, tar_gz_path, output_dir):
-        """Extrae archivo TAR.GZ o TGZ"""
         with tarfile.open(tar_gz_path, 'r:gz') as tar_ref:
             tar_ref.extractall(output_dir)
     
     def extract_gz(self, gz_path, output_dir):
-        """Extrae archivo GZ simple"""
         output_file = os.path.join(output_dir, os.path.basename(gz_path).replace('.gz', ''))
         try:
             with gzip.open(gz_path, 'rb') as f_in:
                 with open(output_file, 'wb') as f_out:
                     shutil.copyfileobj(f_in, f_out)
             print('[ExtractNested] Descomprimido .gz ->', output_file)
-        except Exception as e:
+        except Exception:
             print('[ExtractNested] Error al descomprimir .gz:', gz_path)
             traceback.print_exc()
             raise
     
     def extract_nested_files(self, directory, depth=0, max_depth=50):
-        """Busca recursivamente archivos comprimidos anidados y los extrae"""
         if depth >= max_depth:
             return
         
@@ -112,8 +99,6 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
                 item_path = os.path.join(directory, item)
                 
                 if os.path.isfile(item_path) and self.is_compressed_file(item_path):
-                    # Para archivos .gz simples, extraer directamente en el mismo directorio
-                    # Para otros formatos, crear carpeta _nested
                     if item_path.endswith('.gz') and not item_path.endswith('.tar.gz') and not item_path.endswith('.tgz'):
                         nested_output = directory
                     else:
@@ -123,33 +108,29 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
                     try:
                         print('[ExtractNested] Extrayendo anidado:', item_path, '->', nested_output)
                         self.extract_to_directory(item_path, nested_output)
-                        # Eliminar archivo comprimido anidado después de extraerlo
                         self.delete_compressed_file(item_path)
                         self.extract_nested_files(nested_output, depth + 1, max_depth)
-                    except Exception as e:
+                    except Exception:
                         print('[ExtractNested] Error al extraer archivo anidado:', item_path)
                         traceback.print_exc()
                 
                 elif os.path.isdir(item_path):
                     self.extract_nested_files(item_path, depth + 1, max_depth)
         
-        except Exception as e:
+        except Exception:
             pass
     
     def show_in_finder(self, directory):
-        """Abre la carpeta en Finder (macOS)"""
         os.system('open "' + directory + '"')
     
     def delete_compressed_file(self, file_path):
-        """Elimina el archivo comprimido después de extraerlo"""
         try:
             if os.path.exists(file_path):
                 os.remove(file_path)
-        except Exception as e:
+        except Exception:
             pass
     
     def clean_macosx_folder(self, directory):
-        """Elimina la carpeta __MACOSX creada por macOS en archivos ZIP"""
         try:
             macosx_path = os.path.join(directory, '__MACOSX')
             if os.path.exists(macosx_path) and os.path.isdir(macosx_path):
@@ -159,7 +140,6 @@ class ExtractNestedCommand(sublime_plugin.WindowCommand):
             print('[ExtractNested] No se pudo eliminar __MACOSX:', str(e))
     
     def is_enabled(self, paths=None):
-        """El comando siempre está habilitado"""
         return True
 
 
@@ -167,13 +147,11 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
     """Comando para abrir diálogo de selección de archivo"""
     
     def run(self):
-        """Abre diálogo para seleccionar archivo"""
-        # Usa comando de macOS para abrir diálogo
         script = '''
         tell application "System Events"
             activate
             try
-                set theFile to choose file with prompt "Select a compressed file:" of type {"com.pkware.zip-archive", "public.tar-archive", "org.gnu.gnu-zip-archive"}
+                set theFile to choose file with prompt "Select a compressed file:"
                 return POSIX path of theFile
             on error
                 return ""
@@ -181,28 +159,33 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
         end tell
         '''
         
-        try:
-            process = subprocess.Popen(['osascript', '-e', script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            output, error = process.communicate()
-            file_path = output.decode('utf-8').strip()
-            
-            if file_path and os.path.exists(file_path):
-                extensions = ('.zip', '.tar', '.tar.gz', '.tgz', '.gz')
-                if file_path.endswith(extensions):
-                    self.window.run_command("extract_nested", {"paths": [file_path]})
-                else:
-                    sublime.error_message("Formato no soportado")
-            elif file_path:
-                sublime.error_message("Archivo no encontrado")
-        except Exception as e:
-            sublime.error_message("Error al abrir diálogo: " + str(e))
+        def worker():
+            try:
+                process = subprocess.Popen(['osascript', '-e', script],
+                                           stdout=subprocess.PIPE,
+                                           stderr=subprocess.PIPE)
+                output, error = process.communicate(timeout=15)
+                file_path = output.decode('utf-8').strip()
+                
+                if file_path and os.path.exists(file_path):
+                    if file_path.endswith(('.zip', '.tar', '.tar.gz', '.tgz', '.gz')):
+                        self.window.run_command("extract_nested", {"paths": [file_path]})
+                    else:
+                        sublime.error_message("Formato no soportado")
+                elif file_path:
+                    sublime.error_message("Archivo no encontrado")
+            except subprocess.TimeoutExpired:
+                sublime.error_message("El diálogo tardó demasiado en responder")
+            except Exception as e:
+                sublime.error_message("Error al abrir diálogo: " + str(e))
+        
+        threading.Thread(target=worker, daemon=True).start()
 
 
 class ExtractNestedInputCommand(sublime_plugin.WindowCommand):
     """Comando para solicitar la ruta del archivo a extraer"""
     
     def run(self):
-        """Muestra input panel para la ruta"""
         self.window.show_input_panel(
             "Path of compressed file:",
             "",
@@ -212,7 +195,6 @@ class ExtractNestedInputCommand(sublime_plugin.WindowCommand):
         )
     
     def on_done(self, path):
-        """Procesa la ruta ingresada"""
         if os.path.exists(path):
             if path.endswith(('.zip', '.tar', '.tar.gz', '.tgz', '.gz')):
                 self.window.run_command("extract_nested", {"paths": [path]})
@@ -222,8 +204,5 @@ class ExtractNestedInputCommand(sublime_plugin.WindowCommand):
             sublime.error_message("Archivo no encontrado")
     
     def is_enabled(self):
-        """El comando siempre está habilitado"""
         return True
 
-
-        
