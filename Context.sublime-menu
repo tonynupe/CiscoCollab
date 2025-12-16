@@ -39,15 +39,6 @@
     },
     {
         "caption": "Extract Files",
-        "children": [
-            {
-                "caption": "Extract using Path",
-                "command": "extract_nested_input"
-            },
-            {
-                "caption": "Extract browsing file",
-                "command": "extract_nested_browse"
-            }
-        ]
+        "command": "extract_nested_browse"
     }
 ]
