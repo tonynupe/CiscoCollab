@@ -1,9 +1,13 @@
 import sublime, sublime_plugin
-import re
+import re, os, time
 
 REGION_NAME = 'StyleOptionsListener%d'
 MAX_STYLES = 10
 REGION_STORE = 'StyleOptionsRegions.sublime-settings'
+
+# Limits
+MAX_REGIONS_PER_STYLE = 500
+MAX_STORAGE_SIZE = 20 * 1024 * 1024  # 20 MB
 
 # Built-in scopes that will render with distinct colors in most themes
 STYLE_MAP = {
@@ -16,22 +20,20 @@ STYLE_MAP = {
     6: "storage.type",           # cyan/blue-green
     7: "markup.raw.inline",      # green highlight
     8: "markup.deleted",         # red
-    9: "diff.deleted.char",      # bright distinct (often bold yellow/white)
+    9: "diff.deleted.char",      # bright distinct
 }
 
-
-# Distinct draw styles for each index
 STYLE_FLAGS = {
-    0: sublime.DRAW_NO_OUTLINE,          # solid background
-    1: sublime.DRAW_SOLID_UNDERLINE,     # underline
-    2: sublime.DRAW_STIPPLED_UNDERLINE,  # dotted underline
-    3: sublime.DRAW_NO_OUTLINE,             # outline only
-    4: sublime.DRAW_NO_OUTLINE,          # background
-    5: sublime.DRAW_SOLID_UNDERLINE,     # underline
-    6: sublime.DRAW_NO_OUTLINE,          # background
-    7: sublime.DRAW_NO_OUTLINE,          # background
-    8: sublime.DRAW_STIPPLED_UNDERLINE,  # dotted underline
-    9: sublime.DRAW_NO_OUTLINE,          # background
+    0: sublime.DRAW_NO_OUTLINE,
+    1: sublime.DRAW_SOLID_UNDERLINE,
+    2: sublime.DRAW_STIPPLED_UNDERLINE,
+    3: sublime.DRAW_NO_OUTLINE,
+    4: sublime.DRAW_NO_OUTLINE,
+    5: sublime.DRAW_SOLID_UNDERLINE,
+    6: sublime.DRAW_NO_OUTLINE,
+    7: sublime.DRAW_NO_OUTLINE,
+    8: sublime.DRAW_STIPPLED_UNDERLINE,
+    9: sublime.DRAW_NO_OUTLINE,
 }
 
 # Persistent region storage
@@ -45,9 +47,50 @@ class StyleOptionsStorage:
         data = {}
         for style in range(MAX_STYLES):
             regions = self.view.get_regions(REGION_NAME % style)
-            data[REGION_NAME % style] = [(r.a, r.b) for r in regions]
-        self.settings.set(self.key, data)
+            if regions:
+                existing = self.settings.get(self.key, {}).get(REGION_NAME % style, [])
+                # Merge old + new with timestamps
+                merged = existing + [
+                    {"a": r.a, "b": r.b, "ts": time.time()}
+                    for r in regions
+                ]
+                # Sort by timestamp, keep newest N
+                merged = sorted(merged, key=lambda x: x["ts"])[-MAX_REGIONS_PER_STYLE:]
+                data[REGION_NAME % style] = merged
+
+        if data:
+            self.settings.set(self.key, data)
+        else:
+            self.settings.erase(self.key)
+
         sublime.save_settings(REGION_STORE)
+
+        # Global storage cap check
+        store_path = os.path.join(sublime.packages_path(), 'User', REGION_STORE)
+        if os.path.exists(store_path) and os.path.getsize(store_path) > MAX_STORAGE_SIZE:
+            self._purge_oldest_entries()
+
+    def _purge_oldest_entries(self):
+        all_data = self.settings.to_dict()
+        all_regions = []
+        for file_key, styles in all_data.items():
+            for style_key, regions in styles.items():
+                for r in regions:
+                    all_regions.append((file_key, style_key, r))
+        # Sort globally by timestamp
+        all_regions.sort(key=lambda x: x[2].get("ts", 0))
+        # Keep only newest half
+        keep = all_regions[len(all_regions)//2:]
+        new_data = {}
+        for file_key, style_key, r in keep:
+            new_data.setdefault(file_key, {}).setdefault(style_key, []).append(r)
+        # Replace settings
+        for k in list(all_data.keys()):
+            self.settings.erase(k)
+        for k, v in new_data.items():
+            self.settings.set(k, v)
+        sublime.save_settings(REGION_STORE)
+        sublime.status_message("Style Options: Storage pruned to reduce size.")
 
     def restore(self):
         data = self.settings.get(self.key, {})
@@ -56,12 +99,12 @@ class StyleOptionsStorage:
                 style_ind = int(re.search(r'\d+', key).group())
             except Exception:
                 continue
-            regions = [sublime.Region(a, b) for a, b in region_list]
+            regions = [sublime.Region(r["a"], r["b"]) for r in region_list]
             self.view.add_regions(
                 key,
                 regions,
                 get_style(style_ind),
-                '',  # no gutter icon
+                '',
                 STYLE_FLAGS.get(style_ind, sublime.DRAW_NO_OUTLINE)
             )
 
@@ -69,6 +112,7 @@ class StyleOptionsStorage:
         for style in range(MAX_STYLES):
             self.view.erase_regions(REGION_NAME % style)
         self.save()
+
 
 # Core logic
 def rollover(style_index):
@@ -115,10 +159,11 @@ def color_selection(view, style_ind):
             REGION_NAME % style_ind,
             current_regions,
             get_style(style_ind),
-            '',  # no gutter icon
+            '',
             STYLE_FLAGS.get(style_ind, sublime.DRAW_NO_OUTLINE)
         )
         StyleOptionsStorage(view).save()
+
 
 # Commands
 class StyleOptionsCommand(sublime_plugin.TextCommand):
@@ -157,11 +202,9 @@ class StyleOptionsGoBackCommand(sublime_plugin.TextCommand):
 class StyleOptionsClearCommand(sublime_plugin.TextCommand):
     def run(self, edit, style_index=-1):
         if style_index < 0:
-            # Clear all styles
             StyleOptionsStorage(self.view).clear()
             sublime.status_message("Style Options: All highlights cleared.")
         else:
-            # Clear only the given style
             self.view.erase_regions(REGION_NAME % rollover(style_index))
             StyleOptionsStorage(self.view).save()
             sublime.status_message("Style Options: Cleared Style %d" % (style_index + 1))
@@ -170,6 +213,16 @@ class StyleOptionsSaveCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         StyleOptionsStorage(self.view).save()
         sublime.status_message("Style Options: Highlights saved.")
+
+class StyleOptionsPurgeCommand(sublime_plugin.WindowCommand):
+    """Manual purge command to reset storage file"""
+    def run(self):
+        settings = sublime.load_settings(REGION_STORE)
+        for k in list(settings.to_dict().keys()):
+            settings.erase(k)
+        sublime.save_settings(REGION_STORE)
+        sublime.status_message("Style Options: All stored highlights purged.")
+
 
 # Event listener for restoration
 class StyleOptionsListener(sublime_plugin.EventListener):
