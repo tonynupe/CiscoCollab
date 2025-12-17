@@ -37,34 +37,31 @@
             { "caption": "Clear All Highlights", "command": "style_options_clear", "args": {"style_index": -1} }
         ]
     },
-        [
+
+    {
+        "caption": "Extraction Tools",
+        "mnemonic": "E",
+        "id": "extraction_tools",
+        "children": [
+            { "caption": "-" },
             {
-                "caption": "Extraction Tools",
-                "mnemonic": "E",
-                "id": "extraction_tools",
-                "children":
-                [
-                    { "caption": "-" },
-        
+                "caption": "Cross‑Platform",
+                "children": [
                     {
-                        "caption": "Cross‑Platform",
-                        "children": [
-                            {
-                                "caption": "Extract by Path (Windows/Linux/macOS)",
-                                "command": "extract_nested_input"
-                            }
-                        ]
-                    },
+                        "caption": "Extract by Path (Windows/Linux/macOS)",
+                        "command": "extract_nested_input"
+                    }
+                ]
+            },
+            {
+                "caption": "macOS Only",
+                "children": [
                     {
-                        "caption": "macOS Only",
-                        "children": [
-                            {
-                                "caption": "Extract by Browsing Files/Folders",
-                                "command": "extract_nested_browse"
-                            }
-                        ]
+                        "caption": "Extract by Browsing Files/Folders",
+                        "command": "extract_nested_browse"
                     }
                 ]
             }
         ]
+    }
 ]
