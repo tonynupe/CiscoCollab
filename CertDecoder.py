@@ -172,7 +172,7 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
                     _safe_unlink(tmp_path)
 
             else:
-                output.append("Input not recognized as PEM or XML-wrapped certificate. Select the PEM block or the XML tag.")
+                pass
 
             html = "<br>".join(output)
             # show popup (guard against exceptions)
