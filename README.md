@@ -7,7 +7,7 @@ CiscoCollab is a Sublime Text package designed to streamline the analysis of Cis
 - Custom keyword highlighting for protocols, config keys, and diagnostic terms
 - Optimized for YAML, SIP, and Cisco-style syntax
 - Mouse binding for quick bookmarking (to be added manually)
-- Extraction tool for nested files supporting ".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".tar.gz" (removed support for .7z and .rar to prevent external dependencies) 
+- Extraction tool for nested files supporting ".zip", ".tar", ".gz", ".tgz", ".tar.gz" (removed support for .7z and .rar to prevent external dependencies) 
 - Persistent highlights introduced to the plugin, this will preserved highlighted words upon closure of the app
 
 v1.2.0 Nov 3, 2025
