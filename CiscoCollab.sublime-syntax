@@ -7,52 +7,82 @@ file_extensions:
   - gzo
   - log
 scope: text.cisco
+
 contexts:
+  # Entry point: Cisco first, Ada fills the gaps
   main:
+    - include: cisco-main
+    - include: ada-main
+
+  # ─────────────────────────────────────────────
+  # Cisco syntax 
+  # ─────────────────────────────────────────────
+  cisco-main:
     - match: '^\s*no '
       scope: invalid.illegal.cisco
+
     - match: access-list
       scope: support.function.cisco
+
     - match: 'crypto '
       scope: string.unquoted.cisco
+
     - match: 'any '
       scope: string.unquoted.cisco
+
     - match: 'deny '
       scope: support.constant.cisco
+
     - match: 'permit '
       scope: constant.character.escape.cisco
+
     - match: 'object-group '
       scope: markup.list.cisco
+
     - match: 'object '
       scope: markup.list.cisco
+
     - match: 'host '
       scope: markup.list.cisco
+
     - match: '^[\s]*!(.*)'
-      scope: comment.cisco
+      scope: comment.line.cisco
+
     - match: 'static '
       scope: constant.numeric.cisco
+
     - match: 'tunnel-group '
       scope: support.class.cisco
+
     - match: 'crypto '
       scope: support.class.cisco
+
     - match: '\d+\.\d+\.\d+\.\d+(/\d{1,2})?'
       scope: constant.numeric.cisco
+
     - match: '\b\d{2}:\d{2}:\d{2}(\.\d{3})?\b'
       scope: constant.numeric.timestamp.cisco
-    - match: '[0-9a-fA-F]{0,4}:([0-9a-fA-F]{0,4}:)+[0-9a-fA-F]{0,4}(/\d{1,3})?'
-      scope: constant.numeric.cisco
+    # IPv6 Overlap
+    #- match: '[0-9a-fA-F]{0,4}:([0-9a-fA-F]{0,4}:)+[0-9a-fA-F]{0,4}(/\d{1,3})?'
+    #  scope: constant.numeric.cisco
+
     - match: '\b(SdlSig-I|SdlSig-O)\b'
       scope: constant.numeric.cisco
+
     - match: '\bparty[12]DTMF\([^()]*\([^()]*\)[^()]*\)|party[12]DTMF\([^()]*\)'
       scope: support.constant.dtmf.cisco
+
     - match: '\b(MTPInsertionReason|SMDMSharedData::findLocalDevice|RouteListName)\b'
       scope: support.constant.dtmf.cisco
+
     - match: '\b(INVITE|OPTIONS|User-Agent|REFER|PRACK|CANCEL|ACK|BYE|INFO|SUBSCRIBE|NOTIFY|UPDATE|REGISTER|CcT302ToInd|SdlSig-I|SdlSig-O|[csf.voicemail]|[csf.cert.utils]|[csf.voicemail]|[csf.httpclient]|spEntityID|idpEntityID|AuthnRequest|SPACSUtils:getResponseFromPost)\b'
-      scope: string
+      scope: string.unquoted.cisco
+
     - match: '\b(InResponseTo|AuthnRequest|AssertionConsumerService|idpEntityID|SingleSignOnService|No matching outgoing dial-peer|spEntityID|Incoming Dial-peer=|Outgoing Dial-peer=|mwiTargetDn|maxDeskPickupWaitTime|MTPNeededDueToDTMFCapMismatch|DATransformMatch|RequestXmfConnectionMediaForking|SoftKeyEvent|NotifyXmfConnectionData|C_MediaFork_Start|MEDIAFORK_Prepare_MediaEstablishedDone|MEDIAFORK_Start_StartDone|cc_api_call_disconnected)\b'
-      scope: constant.language.null 
-    - match: '\b(Failed|Error|ERROR|failed|fail|error|XcoderRequired|ccDisconnReq.cv|mismatch!|CcT302ToInd|StationT302|caps mismatch! Xcoder Reqd)\b'
-      scope: invalid
+      scope: string.unquoted.cisco
+
+    - match: '\b(Failed|Error|ERROR|failed|fail|error|XcoderRequired|ccDisconnReq.cv|mismatch!|CcT302ToInd|StationT302)\b'
+      scope: invalid.illegal.cisco
 
     # EOL highlighter for CSG processes
     - match: '\*-----\*'
@@ -61,3 +91,79 @@ contexts:
         - meta_scope: support.constant.dtmf.cisco
         - match: '\n'
           pop: true
+
+  # ─────────────────────────────────────────────
+  # Ada syntax
+  # ─────────────────────────────────────────────
+  ada-main:
+    - include: ada-comments
+    - include: ada-strings
+    - include: ada-labels
+
+    - match: \b(?i:(function|procedure))\b\s+(\w+(?:\.\w+)?|"(?:\+|-|=|\*|/)") 
+      captures:
+        1: keyword.declaration.function.ada
+        2: entity.name.function.ada
+      scope: meta.function.ada
+
+    - match: \b(?i:(package)(?:\s+(body))?)\b\s+(\w+(?:\.\w+)*|"(?:\+|-|=|\*|/)") 
+      captures:
+        1: keyword.declaration.package.ada
+        2: keyword.declaration.package.body.ada
+        3: entity.name.package.ada
+      scope: meta.package.ada
+
+    - match: \b((?i:end))\s*(?:(?i:(if|loop|record|case|select))\s*)?(\w+)?\s*;
+      captures:
+        1: keyword.control.end.ada
+        2: keyword.control.block.ada
+        3: entity.name.label.ada
+      scope: meta.block.end.ada
+
+    - match: \b(?i:end)\b\s+(\w+(?:\.\w+)*|"(?:\+|-|=|\*|/)")\s*;
+      captures:
+        1: entity.name.block.ada
+      scope: meta.block.end.ada
+
+    - match: ((?i:(limited\s*)?(private\s*)?with))\s+(\w+(?:\.\w+)*); 
+      captures:
+        1: keyword.control.import.ada
+        4: entity.name.import.ada
+      scope: meta.import.ada
+
+    - match: \b(?i:(begin|end|package))\b
+      scope: keyword.control.ada
+    # Not needed for SDL 
+    # - match: \b(?i:(abort|abs|abstract|accept|access|aliased|all|and|array|at|body|case|constant|declare|delay|delta|digits|do|else|elsif|entry|exception|exit|for|function|generic|goto|if|in|interface|is|limited|loop|mod|new|not|null|of|or|others|out|overriding|pragma|private|procedure|protected|raise|range|record|rem|renames|requeue|return|reverse|select|separate|some|subtype|synchronized|tagged|task|terminate|then|type|until|use|when|while|with|xor))\b
+    #  scope: keyword.other.ada
+
+    - match: \b[0-9](?:_?[0-9])*(?:#[0-9a-f](?:_?[0-9a-f])*#(?:e[+-]?[0-9](?:_?[0-9])*)?)?(?:\.[0-9](?:_?[0-9])*)?(?:e[+-]?[0-9](?:_?[0-9])*)?\b
+      scope: constant.numeric.ada
+
+  # ─────────────────────────────────────────────
+  # Ada repository contexts 
+  # ─────────────────────────────────────────────
+
+  ada-comments:
+    - match: (--).*$\n?
+      captures:
+        1: punctuation.definition.comment.ada
+      scope: comment.line.double-dash.ada
+
+  ada-labels:
+    - match: '<<(.+)>>'
+      captures:
+        1: entity.name.label.ada
+      scope: keyword.operator.label.ada
+
+    - match: '^\s*\b(\w+?)\s*:'
+      captures:
+        1: entity.name.label.ada
+      scope: keyword.operator.label.ada
+
+  ada-strings:
+    - match: "'.'"
+      scope: string.quoted.single.ada
+
+
+
