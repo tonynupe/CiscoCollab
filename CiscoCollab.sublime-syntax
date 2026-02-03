@@ -7,7 +7,7 @@ file_extensions:
   - gzo
   - log
 file_patterns:
-  - '.*\.log\.*
+ - '.*\.log\.\d+$'
 scope: text.cisco
 
 contexts:
