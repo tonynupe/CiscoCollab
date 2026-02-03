@@ -6,6 +6,8 @@ file_extensions:
   - txt
   - gzo
   - log
+file_patterns:
+  - '.*\.log\.*
 scope: text.cisco
 
 contexts:
