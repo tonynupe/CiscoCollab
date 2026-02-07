@@ -83,7 +83,7 @@ contexts:
     - match: '\b(InResponseTo|AuthnRequest|AssertionConsumerService|idpEntityID|SingleSignOnService|No matching outgoing dial-peer|spEntityID|Incoming Dial-peer=|Outgoing Dial-peer=|mwiTargetDn|maxDeskPickupWaitTime|MTPNeededDueToDTMFCapMismatch|DATransformMatch|RequestXmfConnectionMediaForking|SoftKeyEvent|NotifyXmfConnectionData|C_MediaFork_Start|MEDIAFORK_Prepare_MediaEstablishedDone|MEDIAFORK_Start_StartDone|cc_api_call_disconnected)\b'
       scope: string.unquoted.cisco
 
-    - match: '\b(Failed|Error|ERROR|failed|fail|error|XcoderRequired|ccDisconnReq.cv|mismatch!|CcT302ToInd|StationT302)\b'
+    - match: '\b(Failed|Error|ERROR|failed|fail|error|AppError|XcoderRequired|ccDisconnReq.cv|mismatch!|CcT302ToInd|StationT302)\b'
       scope: invalid.illegal.cisco
 
     # EOL highlighter for CSG processes
