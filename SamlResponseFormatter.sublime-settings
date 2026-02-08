@@ -1,0 +1,5 @@
+{
+  "saml_auto_format_on_open": true,
+  "saml_auto_format_extensions": ["log"],
+  "saml_auto_format_max_bytes": 5000000
+}
