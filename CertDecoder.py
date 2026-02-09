@@ -1,30 +1,26 @@
-import base64
-import binascii
-import os
-import re
-import ssl
-import subprocess
-import tempfile
-import traceback
-from datetime import datetime
-from xml.dom import minidom
-
 import sublime
 import sublime_plugin
+import re
+import ssl
+import base64
+import tempfile
+import os
+import subprocess
+import binascii
+import traceback
+from datetime import datetime
 
-START_TAG = "<saml2p:Response"
-END_TAG = "</saml2p:Response>"
+# Debug load message (will appear in Sublime console)
+print("CiscoCollab: CertDecoder plugin loaded (py3.3 compatible)")
+
+# Patterns
 PEM_BLOCK_PATTERN = r"(?s)-----BEGIN (CERTIFICATE|CERTIFICATE REQUEST)-----.*?-----END \1-----"
 XML_CERT_PATTERN = r"(?s)<(?:ds:)?X509Certificate>\s*(.*?)\s*</(?:ds:)?X509Certificate>"
-
-SETTINGS_FILE = "SamlResponseFormatter.sublime-settings"
-
 
 def _write_text_tempfile(text, suffix=".pem"):
     with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False) as tmp:
         tmp.write(text)
         return tmp.name
-
 
 def _safe_unlink(path):
     if path and os.path.exists(path):
@@ -33,15 +29,14 @@ def _safe_unlink(path):
         except Exception:
             pass
 
-
 def _der_to_pem_text(der):
     b64 = base64.b64encode(der).decode("ascii")
-    lines = [b64[i:i + 64] for i in range(0, len(b64), 64)]
+    lines = [b64[i:i+64] for i in range(0, len(b64), 64)]
     return "-----BEGIN CERTIFICATE-----\n" + "\n".join(lines) + "\n-----END CERTIFICATE-----\n"
-
 
 def _append_cert_info(output_list, info):
     try:
+        # Build subject and issuer strings in a Python 3.3 compatible way
         subject_parts = []
         for tup in info.get("subject", []):
             for k, v in tup:
@@ -69,131 +64,20 @@ def _append_cert_info(output_list, info):
                 validity_html = "<span style='color:green'>Valid until {}</span>".format(not_after)
             output_list.append(validity_html)
         except Exception:
+            # ignore parse errors for notAfter
             pass
 
-    except Exception as exc:
-        output_list.append("Error extracting certificate fields: " + str(exc))
-
-
-def _settings():
-    return sublime.load_settings(SETTINGS_FILE)
-
-
-def _should_auto_format(view):
-    settings = _settings()
-    if not settings.get("saml_auto_format_on_open", False):
-        return False
-
-    file_path = view.file_name()
-    if not file_path:
-        return False
-
-    extensions = settings.get("saml_auto_format_extensions", ["log"]) or ["log"]
-    ext = os.path.splitext(file_path)[1].lstrip(".").lower()
-    normalized = [str(item).lstrip(".").lower() for item in extensions]
-    if normalized and ext not in normalized:
-        return False
-
-    max_bytes = settings.get("saml_auto_format_max_bytes", 5_000_000)
-    if isinstance(max_bytes, int) and max_bytes > 0:
-        try:
-            if os.path.getsize(file_path) > max_bytes:
-                return False
-        except OSError:
-            return False
-
-    return view.find(START_TAG, 0) is not None
-
-
-def _collapse_x509_certificate(text):
-    def replacer(match):
-        inner = re.sub(r"\s+", "", match.group(2))
-        return "{}{}{}".format(match.group(1), inner, match.group(3))
-
-    return re.sub(
-        r"(<(?:ds:)?X509Certificate>)([\s\S]*?)(</(?:ds:)?X509Certificate>)",
-        replacer,
-        text,
-    )
-
-
-def pretty_xml(xml_text, indent="  "):
-    doc = minidom.parseString(xml_text)
-    pretty = doc.toprettyxml(indent=indent)
-    lines = [line for line in pretty.splitlines() if line.strip()]
-    if lines and lines[0].startswith("<?xml"):
-        lines = lines[1:]
-    formatted = "\n".join(lines)
-    return _collapse_x509_certificate(formatted)
-
-
-def format_saml_blocks(text):
-    out_parts = []
-    pos = 0
-    formatted = 0
-    failed = 0
-
-    while True:
-        start = text.find(START_TAG, pos)
-        if start == -1:
-            out_parts.append(text[pos:])
-            break
-
-        end = text.find(END_TAG, start)
-        if end == -1:
-            out_parts.append(text[pos:])
-            break
-
-        end += len(END_TAG)
-        out_parts.append(text[pos:start])
-        block = text[start:end]
-
-        try:
-            formatted_block = pretty_xml(block)
-            out_parts.append(formatted_block)
-            formatted += 1
-        except Exception:
-            out_parts.append(block)
-            failed += 1
-
-        pos = end
-
-    return "".join(out_parts), formatted, failed
-
-
-class SamlFormatResponseCommand(sublime_plugin.TextCommand):
-    def run(self, edit, scope="all"):
-        if scope != "all":
-            scope = "all"
-
-        regions = self.view.sel()
-        targets = []
-
-        if scope == "selection" and regions and not regions[0].empty():
-            targets = list(regions)
-        else:
-            targets = [sublime.Region(0, self.view.size())]
-
-        total_formatted = 0
-        total_failed = 0
-
-        for region in reversed(targets):
-            text = self.view.substr(region)
-            new_text, formatted, failed = format_saml_blocks(text)
-            if new_text != text:
-                self.view.replace(edit, region, new_text)
-            total_formatted += formatted
-            total_failed += failed
-
-        status = "SAML Response formatted: {} ok, {} failed".format(
-            total_formatted, total_failed
-        )
-        sublime.status_message(status)
-
+    except Exception as e:
+        output_list.append("Error extracting certificate fields: " + str(e))
 
 class DecodePemSelectionCommand(sublime_plugin.TextCommand):
+    """
+    Decode PEM certificates and XML-wrapped X509Certificate blocks.
+    """
+
     def run(self, edit, pem_text=None):
         try:
+            print("CiscoCollab: decode command invoked; pem_text provided: {}".format(bool(pem_text)))
             if not pem_text:
                 sel = self.view.sel()[0]
                 pem_text = self.view.substr(sel).strip()
@@ -201,14 +85,16 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
                     sublime.error_message("Select certificate/CSR content first or hover over it")
                     return
             self.decode_and_show(pem_text)
-        except Exception as exc:
+        except Exception as e:
+            print("CiscoCollab: decode command exception:", e)
             traceback.print_exc()
-            sublime.error_message("Error decoding certificate: " + str(exc))
+            sublime.error_message("Error decoding certificate: " + str(e))
 
     def decode_and_show(self, pem_text):
         try:
             output = []
 
+            # XML-wrapped certificate
             m_xml = re.search(XML_CERT_PATTERN, pem_text, re.S)
             if m_xml:
                 output.append("<b>XML-wrapped Certificate Detected</b>")
@@ -219,8 +105,8 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
                 else:
                     try:
                         der = base64.b64decode(b64_clean)
-                    except Exception as exc:
-                        output.append("Base64 decode failed: " + str(exc))
+                    except Exception as e:
+                        output.append("Base64 decode failed: " + str(e))
                     else:
                         tmp_path = None
                         try:
@@ -228,11 +114,12 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
                             tmp_path = _write_text_tempfile(pem_text_for_openssl, suffix=".pem")
                             info = ssl._ssl._test_decode_cert(tmp_path)
                             _append_cert_info(output, info)
-                        except Exception as exc:
-                            output.append("Failed to parse XML certificate: " + str(exc))
+                        except Exception as e:
+                            output.append("Failed to parse XML certificate: " + str(e))
                         finally:
                             _safe_unlink(tmp_path)
 
+            # PEM CSR
             elif "BEGIN CERTIFICATE REQUEST" in pem_text:
                 output.append("<b>CSR Detected</b>")
                 tmp_path = None
@@ -243,8 +130,9 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
                     try:
                         result = subprocess.check_output(
                             ["openssl", "req", "-in", tmp_path, "-noout", "-text"],
-                            stderr=subprocess.STDOUT,
+                            stderr=subprocess.STDOUT
                         )
+                        # decode result in a py3.3-compatible way
                         try:
                             decoded = result.decode("utf-8", "replace")
                         except Exception:
@@ -254,14 +142,13 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
                     finally:
                         _safe_unlink(tmp_path)
                 except Exception:
-                    m = re.search(
-                        r"(?s)-----BEGIN CERTIFICATE REQUEST-----(.*?)-----END CERTIFICATE REQUEST-----",
-                        pem_text,
-                    )
+                    # minimal fallback: show DER length if possible
+                    m = re.search(r"(?s)-----BEGIN CERTIFICATE REQUEST-----(.*?)-----END CERTIFICATE REQUEST-----", pem_text)
                     if m:
                         b64 = "".join(m.group(1).strip().splitlines())
                         try:
                             der = base64.b64decode(b64)
+                            # use binascii for hex preview for py3.3 compatibility
                             preview_hex = binascii.hexlify(der[:20]).decode("ascii")
                             output.append("DER length: " + str(len(der)))
                             output.append("Raw bytes preview: " + preview_hex)
@@ -271,6 +158,7 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
                     else:
                         output.append("CSR block not well-formed or OpenSSL not available")
 
+            # PEM Certificate
             elif "BEGIN CERTIFICATE" in pem_text:
                 output.append("<b>Certificate Detected (PEM)</b>")
                 tmp_path = None
@@ -278,27 +166,38 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
                     tmp_path = _write_text_tempfile(pem_text, suffix=".pem")
                     info = ssl._ssl._test_decode_cert(tmp_path)
                     _append_cert_info(output, info)
-                except Exception as exc:
-                    output.append("Failed to decode PEM certificate: " + str(exc))
+                except Exception as e:
+                    output.append("Failed to decode PEM certificate: " + str(e))
                 finally:
                     _safe_unlink(tmp_path)
 
+            else:
+                pass
+
             html = "<br>".join(output)
+            # show popup (guard against exceptions)
             try:
                 self.view.show_popup(html, max_width=800)
             except Exception:
+                # fallback to message dialog if popup fails
                 sublime.message_dialog("Certificate decode result:\n\n" + "\n".join(output))
-        except Exception as exc:
+        except Exception as e:
+            print("CiscoCollab: decode_and_show exception:", e)
             traceback.print_exc()
-            sublime.error_message("Error decoding certificate: " + str(exc))
-
+            sublime.error_message("Error decoding certificate: " + str(e))
 
 class PemHoverListener(sublime_plugin.EventListener):
+    """
+    Hover listener for PEM and XML certificate blocks.
+    """
+
     def on_hover(self, view, point, hover_zone):
         try:
+            print("CiscoCollab: on_hover called; hover_zone: {}".format(hover_zone))
             if hover_zone != sublime.HOVER_TEXT:
                 return
 
+            # PEM blocks
             blocks = view.find_all(PEM_BLOCK_PATTERN)
             for region in blocks:
                 if region.contains(point):
@@ -306,6 +205,7 @@ class PemHoverListener(sublime_plugin.EventListener):
                     view.run_command("decode_pem_selection", {"pem_text": pem_text})
                     return
 
+            # XML blocks
             xml_blocks = view.find_all(XML_CERT_PATTERN)
             for region in xml_blocks:
                 if region.contains(point):
@@ -313,18 +213,13 @@ class PemHoverListener(sublime_plugin.EventListener):
                     view.run_command("decode_pem_selection", {"pem_text": xml_text})
                     return
 
+            # Fallback: if user has a non-empty selection, decode that
             sel = view.sel()[0]
             if not sel.empty():
                 selected_text = view.substr(sel)
                 if selected_text.strip():
                     view.run_command("decode_pem_selection", {"pem_text": selected_text})
-        except Exception:
+                    return
+        except Exception as e:
+            print("CiscoCollab: on_hover exception:", e)
             traceback.print_exc()
-
-
-class SamlAutoFormatOnLoadListener(sublime_plugin.EventListener):
-    def on_load(self, view):
-        if not _should_auto_format(view):
-            return
-
-        sublime.set_timeout(lambda: view.run_command("saml_format_response"), 0)
