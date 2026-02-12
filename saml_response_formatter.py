@@ -29,7 +29,7 @@ def _should_auto_format(view):
     if normalized and ext not in normalized:
         return False
 
-    max_bytes = settings.get("saml_auto_format_max_bytes", 5_000_000)
+    max_bytes = settings.get("saml_auto_format_max_bytes", 5000000)
     if isinstance(max_bytes, int) and max_bytes > 0:
         try:
             if os.path.getsize(file_path) > max_bytes:
