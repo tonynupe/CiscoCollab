@@ -13,13 +13,19 @@ CiscoCollab is a Sublime Text package designed to streamline the analysis of Cis
 v1.2.0 Nov 3, 2025
 - Feature added to clear specific styles instead of only "clear all", malfunction corrections on the extraction tool and remove dependancies from other files
 
-- v1.3.0 Nov 14, 2025
+1.3.0 Nov 14, 2025
 - CUCM dictionary values added as hover over popups for ease of understanding of what some values might mean; First stage: DTMF
 - Added syntax for EOL (end of line) process of CSF devices.
 
+v1.4.0 Dec 19th,2025
 - 🔐 Certificate Decoder
 Hover over Base64‑encoded certificates to view decoded X.509 details.
 Supports PEM and XML‑wrapped certificates, including SSO logs.
+
+v1.5.0 Feb 10th, 2025
+- SAML SSO logs auto format, Applies XML prettify to SSO logs from CUCM to display correctly the "InResponseTo" messages from IDP (Debug level of trace is required)
+- Automatically applies "Cisco" Syntax to new 
+- Untitled tabs rename with first line edit in file despite the syntax applied
 
 ## Create a new file with the name "Default (OSX).sublime-mousemap" for Mac and save it into this User/ folder; use "Default (Windows).sublime-mousemap" for Windows
 ## Content:
