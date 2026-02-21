@@ -8,14 +8,87 @@ import os
 import subprocess
 import binascii
 import traceback
+import time
 from datetime import datetime
 
-# Debug load message (will appear in Sublime console)
-print("CiscoCollab: CertDecoder plugin loaded (py3.3 compatible)")
+DEBUG_LOG = False
+
+
+def _debug(msg):
+    if DEBUG_LOG:
+        print(msg)
 
 # Patterns
 PEM_BLOCK_PATTERN = r"(?s)-----BEGIN (CERTIFICATE|CERTIFICATE REQUEST)-----.*?-----END \1-----"
 XML_CERT_PATTERN = r"(?s)<(?:ds:)?X509Certificate>\s*(.*?)\s*</(?:ds:)?X509Certificate>"
+HOVER_SCAN_WINDOW = 200000
+HOVER_THROTTLE_MS = 120
+_HOVER_STATE = {}
+
+
+def _find_enclosing_block(text, rel_point, begin_token, end_token):
+    start = text.rfind(begin_token, 0, rel_point + 1)
+    if start == -1:
+        return None
+
+    end = text.find(end_token, rel_point)
+    if end == -1:
+        return None
+
+    end += len(end_token)
+    if start <= rel_point < end:
+        return (start, end)
+    return None
+
+
+def _extract_hover_payload(view, point):
+    size = view.size()
+    window_start = max(0, point - HOVER_SCAN_WINDOW)
+    window_end = min(size, point + HOVER_SCAN_WINDOW)
+
+    region = sublime.Region(window_start, window_end)
+    text = view.substr(region)
+    rel_point = point - window_start
+
+    xml_pairs = [
+        ("<X509Certificate>", "</X509Certificate>"),
+        ("<ds:X509Certificate>", "</ds:X509Certificate>"),
+    ]
+    for begin_token, end_token in xml_pairs:
+        bounds = _find_enclosing_block(text, rel_point, begin_token, end_token)
+        if bounds:
+            rel_start, rel_end = bounds
+            abs_start = window_start + rel_start
+            abs_end = window_start + rel_end
+            return text[rel_start:rel_end], abs_start, abs_end
+
+    pem_pairs = [
+        (
+            "-----BEGIN CERTIFICATE REQUEST-----",
+            "-----END CERTIFICATE REQUEST-----",
+        ),
+        ("-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----"),
+    ]
+    for begin_token, end_token in pem_pairs:
+        bounds = _find_enclosing_block(text, rel_point, begin_token, end_token)
+        if bounds:
+            rel_start, rel_end = bounds
+            abs_start = window_start + rel_start
+            abs_end = window_start + rel_end
+            return text[rel_start:rel_end], abs_start, abs_end
+
+    return None
+
+
+def _should_skip_hover(view, point):
+    now = time.time()
+    state = _HOVER_STATE.get(view.id())
+    if state:
+        elapsed_ms = (now - state.get("ts", 0)) * 1000.0
+        if elapsed_ms < HOVER_THROTTLE_MS and abs(point - state.get("point", -999999)) < 3:
+            return True
+    _HOVER_STATE[view.id()] = {"ts": now, "point": point}
+    return False
 
 def _write_text_tempfile(text, suffix=".pem"):
     with tempfile.NamedTemporaryFile(mode="w", suffix=suffix, delete=False) as tmp:
@@ -77,7 +150,7 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
 
     def run(self, edit, pem_text=None):
         try:
-            print("CiscoCollab: decode command invoked; pem_text provided: {}".format(bool(pem_text)))
+            _debug("CiscoCollab: decode command invoked; pem_text provided: {}".format(bool(pem_text)))
             if not pem_text:
                 sel = self.view.sel()[0]
                 pem_text = self.view.substr(sel).strip()
@@ -86,7 +159,7 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
                     return
             self.decode_and_show(pem_text)
         except Exception as e:
-            print("CiscoCollab: decode command exception:", e)
+            _debug("CiscoCollab: decode command exception: {}".format(e))
             traceback.print_exc()
             sublime.error_message("Error decoding certificate: " + str(e))
 
@@ -182,7 +255,7 @@ class DecodePemSelectionCommand(sublime_plugin.TextCommand):
                 # fallback to message dialog if popup fails
                 sublime.message_dialog("Certificate decode result:\n\n" + "\n".join(output))
         except Exception as e:
-            print("CiscoCollab: decode_and_show exception:", e)
+            _debug("CiscoCollab: decode_and_show exception: {}".format(e))
             traceback.print_exc()
             sublime.error_message("Error decoding certificate: " + str(e))
 
@@ -193,25 +266,33 @@ class PemHoverListener(sublime_plugin.EventListener):
 
     def on_hover(self, view, point, hover_zone):
         try:
-            print("CiscoCollab: on_hover called; hover_zone: {}".format(hover_zone))
+            _debug("CiscoCollab: on_hover called; hover_zone: {}".format(hover_zone))
             if hover_zone != sublime.HOVER_TEXT:
                 return
 
-            # PEM blocks
-            blocks = view.find_all(PEM_BLOCK_PATTERN)
-            for region in blocks:
-                if region.contains(point):
-                    pem_text = view.substr(region)
-                    view.run_command("decode_pem_selection", {"pem_text": pem_text})
+            if _should_skip_hover(view, point):
+                return
+
+            payload_data = _extract_hover_payload(view, point)
+            if payload_data:
+                payload, start, end = payload_data
+                state = _HOVER_STATE.get(view.id(), {})
+                same_block = (
+                    state.get("block_start") == start and
+                    state.get("block_end") == end and
+                    state.get("change_count") == view.change_count()
+                )
+                if same_block and view.is_popup_visible():
                     return
 
-            # XML blocks
-            xml_blocks = view.find_all(XML_CERT_PATTERN)
-            for region in xml_blocks:
-                if region.contains(point):
-                    xml_text = view.substr(region)
-                    view.run_command("decode_pem_selection", {"pem_text": xml_text})
-                    return
+                state.update({
+                    "block_start": start,
+                    "block_end": end,
+                    "change_count": view.change_count(),
+                })
+                _HOVER_STATE[view.id()] = state
+                view.run_command("decode_pem_selection", {"pem_text": payload})
+                return
 
             # Fallback: if user has a non-empty selection, decode that
             sel = view.sel()[0]
@@ -221,5 +302,5 @@ class PemHoverListener(sublime_plugin.EventListener):
                     view.run_command("decode_pem_selection", {"pem_text": selected_text})
                     return
         except Exception as e:
-            print("CiscoCollab: on_hover exception:", e)
+            _debug("CiscoCollab: on_hover exception: {}".format(e))
             traceback.print_exc()
