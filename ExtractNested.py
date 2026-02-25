@@ -1,6 +1,3 @@
-Browse multiplatform:
-
-
 import sublime
 import sublime_plugin
 import os
