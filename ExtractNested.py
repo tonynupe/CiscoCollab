@@ -267,9 +267,13 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
         def worker():
             try:
                 paths = self.pick_paths()
-                if not paths:
-                    sublime.status_message("No files selected. Falling back to manual path input.")
+                if paths is None:
+                    sublime.status_message("No graphical file picker is available. Falling back to manual path input.")
                     self.window.run_command("extract_nested_input")
+                    return
+
+                if not paths:
+                    sublime.status_message("Browse canceled.")
                     return
 
                 valid_paths = self.collect_valid_paths(paths)
@@ -280,7 +284,6 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
                     sublime.error_message("No supported compressed files were found in the selected location(s).")
             except Exception as e:
                 sublime.error_message("Unable to open the file browser: " + str(e))
-                self.window.run_command("extract_nested_input")
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -294,14 +297,24 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
         if platform_name == 'linux':
             return self.pick_paths_linux()
 
-        sublime.status_message("Browse is not supported on this platform. Falling back to manual path input.")
-        return []
+        return None
 
-    def run_capture(self, command):
+    def run_capture(self, command, hide_window=False):
+        startupinfo = None
+        creationflags = 0
+
+        if hide_window and os.name == 'nt':
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= getattr(subprocess, 'STARTF_USESHOWWINDOW', 0)
+            startupinfo.wShowWindow = getattr(subprocess, 'SW_HIDE', 0)
+            creationflags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            startupinfo=startupinfo,
+            creationflags=creationflags
         )
         output, _ = process.communicate()
         if process.returncode != 0:
@@ -364,9 +377,12 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
 
         powershell_cmd = shutil.which('powershell') or shutil.which('pwsh')
         if not powershell_cmd:
-            return []
+            return None
 
-        return self.run_capture([powershell_cmd, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script])
+        return self.run_capture(
+            [powershell_cmd, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
+            hide_window=True
+        )
 
     def pick_paths_linux(self):
         if shutil.which('zenity'):
@@ -389,7 +405,7 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
 
             return self.run_capture(['kdialog', '--getexistingdirectory'])
 
-        return []
+        return None
 
     def collect_valid_paths(self, paths):
         valid_paths = []
@@ -443,6 +459,3 @@ class ExtractNestedInputCommand(sublime_plugin.WindowCommand):
 
     def is_enabled(self):
         return True
-
-
-        
