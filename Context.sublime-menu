@@ -39,8 +39,8 @@
     {
         "caption": "Extract Files",
         "children": [
-            { "caption": "Extract by Path (Windows/Linux/macOS)", "command": "extract_nested_input"}, 
-            { "caption": "Extract by Browsing Files/Folders (macOS Only)", "command": "extract_nested_browse"}
+            { "caption": "Extract by Path", "command": "extract_nested_input"}, 
+            { "caption": "Extract by Browsing Files", "command": "extract_nested_browse"}
         ]
     },
 ]
