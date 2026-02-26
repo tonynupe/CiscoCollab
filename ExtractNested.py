@@ -338,23 +338,7 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
             end try
         end tell
         '''
-
-        folder_script = '''
-        tell application "System Events"
-            activate
-            try
-                set theFolder to choose folder with prompt "Select a folder with compressed files:"
-                return POSIX path of theFolder
-            on error
-                return ""
-            end try
-        end tell
-        '''
-
-        file_paths = self.run_capture(['osascript', '-e', file_script])
-        if file_paths:
-            return file_paths
-        return self.run_capture(['osascript', '-e', folder_script])
+        return self.run_capture(['osascript', '-e', file_script])
 
     def pick_paths_windows(self):
         script = r'''
@@ -365,12 +349,6 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
 
         if ($ofd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
             $ofd.FileNames | ForEach-Object { Write-Output $_ }
-            exit 0
-        }
-
-        $fbd = New-Object System.Windows.Forms.FolderBrowserDialog
-        if ($fbd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            Write-Output $fbd.SelectedPath
             exit 0
         }
         '''
@@ -386,10 +364,7 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
 
     def pick_paths_linux(self):
         if shutil.which('zenity'):
-            file_paths = self.run_capture(['zenity', '--file-selection', '--multiple', '--separator=\n'])
-            if file_paths:
-                return file_paths
-            return self.run_capture(['zenity', '--file-selection', '--directory'])
+            return self.run_capture(['zenity', '--file-selection', '--multiple', '--separator=\n'])
 
         if shutil.which('kdialog'):
             process = subprocess.Popen(
@@ -402,8 +377,7 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
                 text = output.decode('utf-8', errors='replace').strip()
                 if text:
                     return [p for p in shlex.split(text) if p]
-
-            return self.run_capture(['kdialog', '--getexistingdirectory'])
+            return []
 
         return None
 
