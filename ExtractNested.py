@@ -328,10 +328,10 @@ class ExtractNestedBrowseCommand(sublime_plugin.WindowCommand):
             activate
             try
                 set theFiles to choose file with prompt "Select compressed file(s):" with multiple selections allowed
-                set oldDelims to AppleScript's text item delimiters
-                set AppleScript's text item delimiters to linefeed
-                set outText to ((POSIX path of theFiles) as text)
-                set AppleScript's text item delimiters to oldDelims
+                set outText to ""
+                repeat with f in theFiles
+                    set outText to outText & (POSIX path of f) & linefeed
+                end repeat
                 return outText
             on error
                 return ""
