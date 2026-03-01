@@ -105,8 +105,7 @@ class StyleOptionsStorage:
         if not self.scope_root:
             return []
         legacy_keys = []
-        all_data = self.settings.to_dict()
-        for key, value in all_data.items():
+        for key, value in _settings_items(self.settings):
             if not isinstance(value, dict):
                 continue
             candidate = key
@@ -242,7 +241,7 @@ class StyleOptionsStorage:
             self._purge_oldest_entries()
 
     def _purge_oldest_entries(self):
-        all_data = self.settings.to_dict()
+        all_data = dict(_settings_items(self.settings))
         all_tokens = []
         for file_key, styles in all_data.items():
             for style_key, regions in styles.items():
@@ -265,6 +264,18 @@ class StyleOptionsStorage:
             self.settings.set(k, v)
         sublime.save_settings(REGION_STORE)
         sublime.status_message("Style Options: Storage pruned to reduce size.")
+
+
+def _settings_items(settings_obj):
+    to_dict_fn = getattr(settings_obj, "to_dict", None)
+    if callable(to_dict_fn):
+        try:
+            data = to_dict_fn()
+            if isinstance(data, dict):
+                return list(data.items())
+        except Exception:
+            pass
+    return []
 
     def restore(self):
         data = self._merged_scope_data(include_legacy=True)
@@ -432,7 +443,7 @@ class StyleOptionsPurgeCommand(sublime_plugin.WindowCommand):
 
     def run(self):
         settings = sublime.load_settings(REGION_STORE)
-        for k in list(settings.to_dict().keys()):
+        for k, _ in _settings_items(settings):
             settings.erase(k)
         sublime.save_settings(REGION_STORE)
         sublime.status_message("Style Options: All stored highlights purged.")
