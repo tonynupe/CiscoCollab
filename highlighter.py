@@ -7,6 +7,7 @@ import time
 REGION_NAME = 'StyleOptionsListener%d'
 MAX_STYLES = 10
 REGION_STORE = 'StyleOptionsRegions.sublime-settings'
+SETTINGS_INDEX_KEY = '__style_options_keys__'
 
 # Limits
 MAX_REGIONS_PER_STYLE = 500
@@ -41,6 +42,112 @@ STYLE_FLAGS = {
 }
 
 # Persistent region storage
+
+
+def _get_settings_index(settings_obj):
+    keys = settings_obj.get(SETTINGS_INDEX_KEY, [])
+    if not isinstance(keys, list):
+        return []
+    out = []
+    seen = set()
+    for key in keys:
+        if isinstance(key, str) and key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
+
+
+def _set_settings_index(settings_obj, keys):
+    unique = []
+    seen = set()
+    for key in keys:
+        if isinstance(key, str) and key not in seen:
+            seen.add(key)
+            unique.append(key)
+    settings_obj.set(SETTINGS_INDEX_KEY, unique)
+
+
+def _add_settings_index_key(settings_obj, key):
+    keys = _get_settings_index(settings_obj)
+    if key not in keys:
+        keys.append(key)
+        _set_settings_index(settings_obj, keys)
+
+
+def _remove_settings_index_key(settings_obj, key):
+    keys = _get_settings_index(settings_obj)
+    if key in keys:
+        keys = [k for k in keys if k != key]
+        _set_settings_index(settings_obj, keys)
+
+
+def _settings_items(settings_obj):
+    to_dict_fn = getattr(settings_obj, 'to_dict', None)
+    if callable(to_dict_fn):
+        try:
+            data = to_dict_fn()
+            if isinstance(data, dict):
+                return [(k, v) for k, v in data.items() if k != SETTINGS_INDEX_KEY]
+        except Exception:
+            pass
+
+    items = []
+    for key in _get_settings_index(settings_obj):
+        items.append((key, settings_obj.get(key, {})))
+    return items
+
+
+def _restore_storage(storage):
+    restore_fn = getattr(storage, 'restore', None)
+    if callable(restore_fn):
+        return restore_fn()
+
+    merged_scope_fn = getattr(storage, '_merged_scope_data', None)
+    extract_tokens_fn = getattr(storage, '_extract_tokens_from_payload', None)
+    legacy_regions_fn = getattr(storage, '_regions_from_legacy_list', None)
+    view = getattr(storage, 'view', None)
+
+    if not callable(merged_scope_fn) or not callable(extract_tokens_fn) or view is None:
+        return False
+
+    data = merged_scope_fn(include_legacy=True)
+    restored = False
+    for key, payload in data.items():
+        try:
+            style_ind = int(re.search(r'\d+', key).group())
+        except Exception:
+            continue
+
+        token_entries = extract_tokens_fn(payload)
+        patterns = [entry['p'] for entry in token_entries if isinstance(entry, dict) and entry.get('p')]
+        regions = []
+
+        if patterns:
+            seen = set()
+            for pattern in patterns:
+                try:
+                    found = view.find_all(pattern)
+                except Exception:
+                    continue
+                for region in found:
+                    key_tuple = (region.a, region.b)
+                    if key_tuple not in seen:
+                        seen.add(key_tuple)
+                        regions.append(region)
+        elif isinstance(payload, list) and callable(legacy_regions_fn):
+            regions = legacy_regions_fn(payload)
+
+        view.add_regions(
+            key,
+            regions,
+            get_style(style_ind),
+            '',
+            STYLE_FLAGS.get(style_ind, sublime.DRAW_NO_OUTLINE)
+        )
+        if regions:
+            restored = True
+
+    return restored
 
 
 class StyleOptionsStorage:
@@ -136,16 +243,20 @@ class StyleOptionsStorage:
     def _save_scope_data(self, data, purge_legacy=False):
         if data:
             self.settings.set(self.key, data)
+            _add_settings_index_key(self.settings, self.key)
         else:
             self.settings.erase(self.key)
+            _remove_settings_index_key(self.settings, self.key)
 
         for old_key in self.scope_keys:
             if old_key != self.key:
                 self.settings.erase(old_key)
+                _remove_settings_index_key(self.settings, old_key)
 
         if purge_legacy:
             for old_key in self._legacy_file_keys_in_scope():
                 self.settings.erase(old_key)
+                _remove_settings_index_key(self.settings, old_key)
 
         sublime.save_settings(REGION_STORE)
 
@@ -262,20 +373,9 @@ class StyleOptionsStorage:
             self.settings.erase(k)
         for k, v in new_data.items():
             self.settings.set(k, v)
+        _set_settings_index(self.settings, list(new_data.keys()))
         sublime.save_settings(REGION_STORE)
         sublime.status_message("Style Options: Storage pruned to reduce size.")
-
-
-def _settings_items(settings_obj):
-    to_dict_fn = getattr(settings_obj, "to_dict", None)
-    if callable(to_dict_fn):
-        try:
-            data = to_dict_fn()
-            if isinstance(data, dict):
-                return list(data.items())
-        except Exception:
-            pass
-    return []
 
     def restore(self):
         data = self._merged_scope_data(include_legacy=True)
@@ -445,6 +545,7 @@ class StyleOptionsPurgeCommand(sublime_plugin.WindowCommand):
         settings = sublime.load_settings(REGION_STORE)
         for k, _ in _settings_items(settings):
             settings.erase(k)
+        settings.erase(SETTINGS_INDEX_KEY)
         sublime.save_settings(REGION_STORE)
         sublime.status_message("Style Options: All stored highlights purged.")
 
@@ -462,7 +563,7 @@ class StyleOptionsListener(sublime_plugin.EventListener):
                 )
             return
         storage = StyleOptionsStorage(view)
-        restored = storage.restore()
+        restored = _restore_storage(storage)
         if not restored and retries > 0:
             sublime.set_timeout(
                 lambda: self._restore_when_ready(view, retries - 1, delay_ms),
