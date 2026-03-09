@@ -14,6 +14,16 @@ MAX_REGIONS_PER_STYLE = 500
 MAX_TOKENS_PER_STYLE = 500
 MAX_STORAGE_SIZE = 20 * 1024 * 1024  # 20 MB
 
+DOUBLE_CLICK_WINDOW_SEC = 0.45
+DOUBLE_CLICK_PIXEL_TOLERANCE = 8
+
+_bookmark_last_click = {
+    "ts": 0.0,
+    "x": None,
+    "y": None,
+    "view_id": None,
+}
+
 # Built-in scopes that will render with distinct colors in most themes
 STYLE_MAP = {
     0: "support.function",       # blue
@@ -447,6 +457,74 @@ def get_current_regions(view, style_index):
         return view.get_regions(REGION_NAME % rollover(style_index))
 
 
+# --------------------
+# bookmarker
+# --------------------
+def _bookmark_event_from_args(args):
+    event = args.get("event") if isinstance(args, dict) else None
+    return event if isinstance(event, dict) else None
+
+
+def _bookmark_point_from_event(view, event):
+    if not isinstance(event, dict):
+        return None
+    x = event.get("x")
+    y = event.get("y")
+    if x is None or y is None:
+        return None
+    point = view.window_to_text((x, y))
+    return point if point >= 0 else None
+
+
+def _bookmark_is_double_click(args, event, view_id):
+    count = event.get("count") if isinstance(event, dict) else None
+    if count is None and isinstance(args, dict):
+        count = args.get("count")
+    if count == 2:
+        return True
+
+    # Fallback for builds that omit event.count.
+    now = time.time()
+    x = event.get("x") if isinstance(event, dict) else None
+    y = event.get("y") if isinstance(event, dict) else None
+    if x is None or y is None:
+        return False
+
+    prev_ts = _bookmark_last_click["ts"]
+    prev_x = _bookmark_last_click["x"]
+    prev_y = _bookmark_last_click["y"]
+    prev_view_id = _bookmark_last_click["view_id"]
+
+    _bookmark_last_click["ts"] = now
+    _bookmark_last_click["x"] = x
+    _bookmark_last_click["y"] = y
+    _bookmark_last_click["view_id"] = view_id
+
+    if prev_ts <= 0:
+        return False
+
+    return (
+        (now - prev_ts) <= DOUBLE_CLICK_WINDOW_SEC and
+        prev_view_id == view_id and
+        abs(x - prev_x) <= DOUBLE_CLICK_PIXEL_TOLERANCE and
+        abs(y - prev_y) <= DOUBLE_CLICK_PIXEL_TOLERANCE
+    )
+
+
+def _bookmark_is_gutter_click(view, event):
+    x = event.get("x") if isinstance(event, dict) else None
+    if x is None:
+        return False
+
+    point = _bookmark_point_from_event(view, event)
+    if point is None:
+        return False
+
+    line_start = view.line(point).begin()
+    text_x, _ = view.text_to_window(line_start)
+    return x < (text_x - 1)
+
+
 def move_selection(view, region):
     view.sel().clear()
     view.sel().add(sublime.Region(region.begin(), region.begin()))
@@ -488,6 +566,30 @@ def color_selection(view, style_ind):
 class StyleOptionsCommand(sublime_plugin.TextCommand):
     def run(self, edit, style_index):
         color_selection(self.view, rollover(style_index))
+
+
+class StyleOptionsToggleBookmarkAtEventCommand(sublime_plugin.TextCommand):
+    def run(self, edit, event=None, x=None, y=None, **kwargs):
+        if not isinstance(event, dict) and x is not None and y is not None:
+            event = {"x": x, "y": y}
+
+        point = _bookmark_point_from_event(self.view, event)
+        if point is None:
+            selections = self.view.sel()
+            if not selections:
+                return
+            point = selections[0].begin()
+
+        original = [s for s in self.view.sel()]
+        try:
+            line_start = self.view.line(point).begin()
+            self.view.sel().clear()
+            self.view.sel().add(sublime.Region(line_start, line_start))
+            self.view.run_command("toggle_bookmark", {"toggle_line": True})
+        finally:
+            self.view.sel().clear()
+            for selection in original:
+                self.view.sel().add(selection)
 
 
 class StyleOptionsGoCommand(sublime_plugin.TextCommand):
@@ -552,6 +654,22 @@ class StyleOptionsPurgeCommand(sublime_plugin.WindowCommand):
 
 # Event listener for restoration
 class StyleOptionsListener(sublime_plugin.EventListener):
+    def on_text_command(self, view, command_name, args):
+        if command_name != "drag_select" or not isinstance(args, dict):
+            return None
+
+        event = _bookmark_event_from_args(args)
+        if event is None:
+            return None
+
+        if not _bookmark_is_double_click(args, event, view.id()):
+            return None
+
+        if not _bookmark_is_gutter_click(view, event):
+            return None
+
+        return ("style_options_toggle_bookmark_at_event", {"event": event})
+
     def _restore_when_ready(self, view, retries=8, delay_ms=120):
         if not view or not view.file_name():
             return
