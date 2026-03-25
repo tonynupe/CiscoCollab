@@ -3,21 +3,71 @@ import sublime_plugin
 import re
 
 
+SYNTAX_FILE_NAME = "CiscoCollab.sublime-syntax"
+SYNTAX_FALLBACK_PATH = "Packages/CiscoCollab/CiscoCollab.sublime-syntax"
+SYNTAX_APPLIED_FLAG = "cisco_syntax_applied"
+
+
+def _resolve_cisco_syntax_path():
+    # Fast path for common package name.
+    try:
+        sublime.load_resource(SYNTAX_FALLBACK_PATH)
+        return SYNTAX_FALLBACK_PATH
+    except Exception:
+        pass
+
+    # Fallback when the package folder has a different name/version.
+    for resource in sublime.find_resources(SYNTAX_FILE_NAME):
+        if resource.endswith("/" + SYNTAX_FILE_NAME):
+            return resource
+
+    return None
+
+
+def _is_supported_view(view):
+    settings = view.settings()
+
+    if settings.get("is_widget"):
+        return False
+
+    if settings.get("panel"):
+        return False
+
+    return True
+
+
+def _apply_cisco_syntax(view):
+    if not _is_supported_view(view):
+        return
+
+    syntax_path = _resolve_cisco_syntax_path()
+    if not syntax_path:
+        return
+
+    if view.settings().get("syntax") == syntax_path:
+        view.settings().set(SYNTAX_APPLIED_FLAG, True)
+        return
+
+    view.set_syntax_file(syntax_path)
+    view.settings().set(SYNTAX_APPLIED_FLAG, True)
+
+
 class SetDefaultSyntax(sublime_plugin.EventListener):
 
     def on_new(self, view):
-        # Aplicar sintaxis por defecto
-        view.set_syntax_file("Packages/CiscoCollab/CiscoCollab.sublime-syntax")
+        # Aplicar sintaxis Cisco por defecto para nuevos tabs.
+        sublime.set_timeout(lambda: _apply_cisco_syntax(view), 0)
 
         # Resetear flags
+        view.settings().set(SYNTAX_APPLIED_FLAG, False)
         view.settings().set("auto_named_final", False)
 
     def on_load(self, view):
-        # Aplicar a archivos Plain Text
-        if view.settings().get('syntax') == "Packages/Text/Plain text.sublime-syntax":
-            view.set_syntax_file("Packages/CiscoCollab/CiscoCollab.sublime-syntax")
+        # Aplicar sintaxis Cisco a cualquier archivo cargado.
+        sublime.set_timeout(lambda: _apply_cisco_syntax(view), 0)
 
         # Resetear flags al cargar
+        view.settings().set(SYNTAX_APPLIED_FLAG, False)
         view.settings().set("auto_named_final", False)
 
     def on_modified_async(self, view):
