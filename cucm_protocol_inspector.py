@@ -99,6 +99,47 @@ Q850_PATTERNS = [
     re.compile(r'(?i)\breason\s*:\s*q\.?\s*850\s*;\s*cause\s*=\s*(\d{1,3})\b'),
 ]
 
+IPADDR_PATTERNS = [
+    re.compile(r'(?i)\bIpAddr\s*=\s*([0-9a-f]{1,8})\b'),
+    re.compile(r"(?i)\bip\s*'([0-9a-f]{8})'h\b"),
+]
+
+Q931_MESSAGE_TYPES = {
+    0x01: "ALERTING",
+    0x02: "CALL PROCEEDING",
+    0x03: "PROGRESS",
+    0x05: "SETUP",
+    0x07: "CONNECT",
+    0x0F: "CONNECT ACK",
+    0x45: "DISCONNECT",
+    0x4D: "RELEASE",
+    0x5A: "RELEASE COMPLETE",
+    0x62: "FACILITY",
+    0x75: "STATUS",
+    0x79: "STATUS ENQUIRY",
+    0x7B: "INFORMATION",
+    0x7D: "NOTIFY",
+}
+
+Q931_IE_TYPES = {
+    0x04: "Bearer Capability",
+    0x08: "Cause",
+    0x18: "Channel Identification",
+    0x1E: "Progress Indicator",
+    0x28: "Display",
+    0x34: "Signal",
+    0x4C: "Connected Number",
+    0x6C: "Calling Party Number",
+    0x70: "Called Party Number",
+    0x7D: "High Layer Compatibility",
+    0x7E: "User-User",
+}
+
+HEX_CANDIDATE_PATTERNS = [
+    re.compile(r'(?i)(?:0x)?[0-9a-f]{2}(?:[\s:-]+(?:0x)?[0-9a-f]{2}){4,}'),
+    re.compile(r'(?i)\b(?:0x)?[0-9a-f]{12,}\b'),
+]
+
 def explain_enum(enum_type, value):
     return CUCM_ENUMS.get(enum_type, {}).get(value, "Unknown ({})".format(value))
 
@@ -200,6 +241,323 @@ def format_q850_popup(code):
     html += "</div>"
     return html
 
+
+def _hex_to_ipv4_pairs(hex_text):
+    normalized = (hex_text or "").strip().lower().replace("0x", "")
+    if not re.match(r'^[0-9a-f]{1,8}$', normalized):
+        return None
+
+    normalized = normalized.zfill(8)
+    octets = [int(normalized[i:i + 2], 16) for i in range(0, 8, 2)]
+    be_ip = "{}.{}.{}.{}".format(octets[0], octets[1], octets[2], octets[3])
+    le_ip = "{}.{}.{}.{}".format(octets[3], octets[2], octets[1], octets[0])
+
+    return {
+        "hex": normalized.upper(),
+        "be_ip": be_ip,
+        "le_ip": le_ip,
+    }
+
+
+def find_hex_ip_at_point(line_text, rel_point):
+    for regex in IPADDR_PATTERNS:
+        for m in regex.finditer(line_text):
+            if m.start() <= rel_point < m.end():
+                parsed = _hex_to_ipv4_pairs(m.group(1))
+                if parsed:
+                    return {
+                        "start": m.start(1),
+                        "end": m.end(1),
+                        "parsed": parsed,
+                        "is_ipaddr_field": "IpAddr" in m.group(0),
+                    }
+    return None
+
+
+def format_hex_ip_popup(found):
+    parsed = found["parsed"]
+    primary = parsed["le_ip"] if found.get("is_ipaddr_field") else parsed["be_ip"]
+    alternate = parsed["be_ip"] if found.get("is_ipaddr_field") else parsed["le_ip"]
+    primary_label = "Little-endian" if found.get("is_ipaddr_field") else "Network order"
+    alt_label = "Network order" if found.get("is_ipaddr_field") else "Little-endian"
+    network_order = parsed["be_ip"]
+
+    html = "<div style='white-space: pre-wrap; font-family: monospace;'>"
+    html += "<b>HEX to IPv4</b>\n"
+    html += "HEX: <b>{}</b>\n".format(parsed["hex"])
+    html += "OUTPUT ({}) : <span style='color: #1f7a1f;'><b>{}</b></span>\n".format(primary_label, primary)
+    html += "Network order: <span style='color: #0b4f9c;'><b>{}</b></span>\n".format(network_order)
+    if alt_label.lower() != "network order":
+        html += "{}: {}".format(alt_label, alternate)
+    html += "</div>"
+    return html
+
+
+def _normalize_hex_bytes(raw_text):
+    if not raw_text:
+        return []
+
+    # Evita falsos positivos con números decimales largos.
+    if not re.search(r'(?i)[a-f]|0x|[\s:-]', raw_text):
+        return []
+
+    parts = re.findall(r'(?i)(?:0x)?([0-9a-f]{2})', raw_text)
+    output = []
+    for p in parts:
+        try:
+            output.append(int(p, 16))
+        except Exception:
+            return []
+    return output
+
+
+def find_hex_blob_at_point(line_text, rel_point):
+    for regex in HEX_CANDIDATE_PATTERNS:
+        for m in regex.finditer(line_text):
+            if m.start() <= rel_point < m.end():
+                raw = m.group(0)
+                data = _normalize_hex_bytes(raw)
+                if len(data) >= 5:
+                    return {
+                        "start": m.start(),
+                        "end": m.end(),
+                        "raw": raw,
+                        "bytes": data,
+                    }
+    return None
+
+
+def find_first_hex_blob_in_line(line_text):
+    for regex in HEX_CANDIDATE_PATTERNS:
+        for m in regex.finditer(line_text):
+            raw = m.group(0)
+            data = _normalize_hex_bytes(raw)
+            if len(data) >= 5:
+                return {
+                    "start": m.start(),
+                    "end": m.end(),
+                    "raw": raw,
+                    "bytes": data,
+                }
+    return None
+
+
+def find_iedata_hex_blob_at_point(line_text, rel_point):
+    if "IEData=" not in line_text:
+        return None
+
+    m = re.search(r'IEData\s*=\s*(.+)$', line_text)
+    if not m:
+        return None
+
+    start = m.start(1)
+    end = m.end(1)
+    # UX: para líneas IEData activamos aunque el cursor esté en cualquier parte de la línea.
+    _ = rel_point
+
+    raw = m.group(1).strip()
+    data = _normalize_hex_bytes(raw)
+    if len(data) < 2:
+        return None
+
+    return {
+        "start": start,
+        "end": end,
+        "raw": raw,
+        "bytes": data,
+    }
+
+
+def _decode_q931_number_digits(value_bytes):
+    # En estos logs CUCM suele venir IA5/ASCII; conservamos bytes imprimibles.
+    out = []
+    for b in value_bytes:
+        if 32 <= b <= 126:
+            out.append(chr(b))
+    return "".join(out).strip()
+
+
+def _decode_q931_party_number(value_bytes):
+    if not value_bytes:
+        return ""
+
+    # Q.931 Party Number IE:
+    # - octeto 3 (tipo/plan) siempre presente
+    # - octeto 3a (presentation/screening) opcional cuando ext bit del octeto 3 = 0
+    start = 1
+    if len(value_bytes) >= 2 and (value_bytes[0] & 0x80) == 0:
+        start = 2
+
+    return _decode_q931_number_digits(value_bytes[start:])
+
+
+def decode_q931_ie_hex(byte_list):
+    if not byte_list or len(byte_list) < 2:
+        return None
+
+    ie_id = byte_list[0]
+    ie_len = byte_list[1]
+    value = byte_list[2:2 + ie_len]
+    if len(value) < ie_len:
+        value = byte_list[2:]
+
+    result = {
+        "ie_id": ie_id,
+        "ie_len": ie_len,
+        "ie_label": Q931_IE_TYPES.get(ie_id, "Unknown IE"),
+        "text": None,
+        "q850_cause": None,
+    }
+
+    if ie_id == 0x28 and value:
+        # Display IE: texto IA5.
+        result["text"] = "".join([chr(b) if 32 <= b <= 126 else "." for b in value])
+    elif ie_id in (0x6C, 0x70) and len(value) >= 1:
+        result["text"] = _decode_q931_party_number(value)
+    elif ie_id == 0x08 and len(value) >= 2:
+        cause_code = value[1] & 0x7F
+        cause_title, cause_desc = Q850_CAUSES.get(
+            cause_code,
+            ("Unknown / Not Mapped", "No description available in bundled Q.850 map."),
+        )
+        result["q850_cause"] = {
+            "code": cause_code,
+            "title": cause_title,
+            "description": cause_desc,
+        }
+
+    return result
+
+
+def decode_h323_q931_hex(byte_list):
+    if not byte_list or len(byte_list) < 3:
+        return None
+
+    protocol_discriminator = byte_list[0]
+    call_ref_len = byte_list[1] & 0x0F
+    msg_index = 2 + call_ref_len
+
+    if msg_index >= len(byte_list):
+        return None
+
+    call_ref_dir = "Unknown"
+    call_ref_value = None
+    if call_ref_len > 0:
+        first_call_ref_octet = byte_list[2]
+        call_ref_dir = "To originating side" if (first_call_ref_octet & 0x80) else "To destination side"
+        value = first_call_ref_octet & 0x7F
+        idx = 3
+        while idx < (2 + call_ref_len) and idx < len(byte_list):
+            value = (value << 8) | byte_list[idx]
+            idx += 1
+        call_ref_value = value
+
+    msg_type = byte_list[msg_index]
+    result = {
+        "protocol_discriminator": protocol_discriminator,
+        "protocol_label": "Q.931 Call Control" if protocol_discriminator == 0x08 else "Unknown",
+        "call_ref_len": call_ref_len,
+        "call_ref_dir": call_ref_dir,
+        "call_ref_value": call_ref_value,
+        "msg_type": msg_type,
+        "msg_label": Q931_MESSAGE_TYPES.get(msg_type, "Unknown"),
+        "q850_cause": None,
+    }
+
+    i = msg_index + 1
+    while i < len(byte_list):
+        ie_id = byte_list[i]
+
+        # Single-octet IEs (bit 8 = 1) no incluyen campo de longitud.
+        if ie_id & 0x80:
+            i += 1
+            continue
+
+        if i + 1 >= len(byte_list):
+            break
+
+        ie_len = byte_list[i + 1]
+        value_start = i + 2
+        value_end = value_start + ie_len
+        if value_end > len(byte_list):
+            break
+
+        # Cause IE (Q.931 IEI 0x08) contiene causa Q.850 en el segundo octeto.
+        if ie_id == 0x08 and ie_len >= 2:
+            cause_code = byte_list[value_start + 1] & 0x7F
+            cause_title, cause_desc = Q850_CAUSES.get(
+                cause_code,
+                ("Unknown / Not Mapped", "No description available in bundled Q.850 map."),
+            )
+            result["q850_cause"] = {
+                "code": cause_code,
+                "title": cause_title,
+                "description": cause_desc,
+            }
+
+        i = value_end
+
+    return result
+
+
+def format_h323_popup(decoded, byte_list):
+    byte_preview = " ".join(["{:02X}".format(b) for b in byte_list[:48]])
+    if len(byte_list) > 48:
+        byte_preview += " ..."
+
+    html = "<div style='white-space: pre-wrap; font-family: monospace;'>"
+    html += "<b>H.323 / Q.931 HEX</b>\n"
+    html += "Bytes: {}\n".format(len(byte_list))
+    html += "PD: 0x{:02X} ({})\n".format(decoded["protocol_discriminator"], decoded["protocol_label"])
+    html += "CallRefLen: {}\n".format(decoded["call_ref_len"])
+
+    if decoded["call_ref_value"] is not None:
+        html += "CallRef: {} ({})\n".format(decoded["call_ref_value"], decoded["call_ref_dir"])
+
+    html += "MsgType: 0x{:02X} ({})\n".format(decoded["msg_type"], decoded["msg_label"])
+
+    cause = decoded.get("q850_cause")
+    if cause:
+        html += "\nQ.850 Cause {}: {}\n".format(cause["code"], cause["title"])
+        html += "{}\n".format(cause["description"])
+
+    html += "\nHEX: {}".format(byte_preview)
+    html += "</div>"
+    return html
+
+
+def format_q931_ie_popup(decoded, byte_list, ie_name_hint=None):
+    byte_preview = " ".join(["{:02X}".format(b) for b in byte_list[:48]])
+    if len(byte_list) > 48:
+        byte_preview += " ..."
+
+    html = "<div style='white-space: pre-wrap; font-family: monospace;'>"
+    html += "<b>Q.931 IE HEX</b>\n"
+    if ie_name_hint:
+        html += "Line IE: {}\n".format(ie_name_hint)
+    html += "IEI: 0x{:02X} ({})\n".format(decoded["ie_id"], decoded["ie_label"])
+    html += "Length: {}\n".format(decoded["ie_len"])
+
+    if decoded.get("text"):
+        text_label = "Decoded text"
+        if decoded.get("ie_id") == 0x6C:
+            text_label = "Calling number"
+        elif decoded.get("ie_id") == 0x70:
+            text_label = "Called number"
+        elif decoded.get("ie_id") == 0x28:
+            text_label = "Display text"
+
+        html += "{}: <span style='color: #1f7a1f;'><b>{}</b></span>\n".format(text_label, decoded["text"])
+
+    cause = decoded.get("q850_cause")
+    if cause:
+        html += "\nQ.850 Cause {}: {}\n".format(cause["code"], cause["title"])
+        html += "{}\n".format(cause["description"])
+
+    html += "\nHEX: {}".format(byte_preview)
+    html += "</div>"
+    return html
+
 def format_popup(items):
     # Orden deseado de sufijos y mapeo a etiquetas mostradas
     order = [
@@ -267,6 +625,50 @@ class CucmEnumHoverListener(sublime_plugin.EventListener):
                         max_width=700,
                     )
                     sublime.status_message("CUCM Q.850: información mostrada")
+                    return
+
+            ip_hit = find_hex_ip_at_point(line_text, rel_point)
+            if ip_hit:
+                html = format_hex_ip_popup(ip_hit)
+                view.show_popup(
+                    html,
+                    flags=sublime.HIDE_ON_MOUSE_MOVE_AWAY,
+                    location=point,
+                    max_width=600,
+                )
+                sublime.status_message("CUCM HEX IP: información mostrada")
+                return
+
+            hex_blob = find_hex_blob_at_point(line_text, rel_point)
+            if (not hex_blob) and ("IsdnMsgData" in line_text):
+                hex_blob = find_first_hex_blob_in_line(line_text)
+            if hex_blob:
+                decoded = decode_h323_q931_hex(hex_blob["bytes"])
+                if decoded and decoded["protocol_discriminator"] == 0x08:
+                    html = format_h323_popup(decoded, hex_blob["bytes"])
+                    view.show_popup(
+                        html,
+                        flags=sublime.HIDE_ON_MOUSE_MOVE_AWAY,
+                        location=point,
+                        max_width=760,
+                    )
+                    sublime.status_message("CUCM H.323 HEX: información mostrada")
+                    return
+
+            ie_blob = find_iedata_hex_blob_at_point(line_text, rel_point)
+            if ie_blob:
+                ie_name_match = re.search(r'\bIe\s*-\s*([^\-]+?)\s*--', line_text)
+                ie_name = ie_name_match.group(1).strip() if ie_name_match else None
+                ie_decoded = decode_q931_ie_hex(ie_blob["bytes"])
+                if ie_decoded:
+                    html = format_q931_ie_popup(ie_decoded, ie_blob["bytes"], ie_name)
+                    view.show_popup(
+                        html,
+                        flags=sublime.HIDE_ON_MOUSE_MOVE_AWAY,
+                        location=point,
+                        max_width=760,
+                    )
+                    sublime.status_message("CUCM Q.931 IE: información mostrada")
                     return
 
             # localizar regiones DTMF balanceadas dentro de la línea
