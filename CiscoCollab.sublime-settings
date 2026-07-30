@@ -1,0 +1,69 @@
+{
+    // ============================================================
+    // CiscoCollab Settings
+    //
+    // User configuration:
+    // Packages/User/CiscoCollab.sublime-settings
+    //
+    // These settings override the defaults provided by CiscoCollab.
+    // ============================================================
+
+
+    // ============================================================
+    // SAML Response Formatter
+    // ============================================================
+
+    // Automatically format SAML Responses when a log file is opened.
+    //
+    // true  = automatically format matching SAML Responses
+    // false = do not automatically format
+    //
+    "saml_auto_format_on_open": true,
+
+    // File extensions eligible for automatic SAML formatting.
+    //
+    "saml_auto_format_extensions": [
+        "log"
+    ],
+
+    // Maximum file size, in bytes, for automatic formatting.
+    //
+    // 5000000 = approximately 5 MB
+    //
+    "saml_auto_format_max_bytes": 5000000,
+
+
+    // ============================================================
+    // Extractor
+    // ============================================================
+
+    // Controls what happens to the original archive after extraction.
+    //
+    // Current behavior:
+    // true = delete original archive
+    // false = keep original archive
+    //
+    // NOTE:
+    // This setting is reserved for future configuration support.
+    //
+    "extractor_delete_original": true,
+
+    // If enabled, the original archive will be moved to the
+    // operating system Trash instead of being permanently deleted.
+    //
+    // NOTE:
+    // This setting is reserved for future configuration support.
+    //
+    "extractor_use_trash": false,
+
+
+    // ============================================================
+    // Highlighter
+    // ============================================================
+
+    // Highlighter configuration will be added here in a future
+    // version.
+    //
+    // The existing Context.sublime-menu remains unchanged and
+    // continues to provide the fixed highlighting commands.
+}
