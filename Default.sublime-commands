@@ -1,0 +1,9 @@
+[
+    {
+        "caption": "CiscoCollab: Settings",
+        "command": "open_file",
+        "args": {
+            "file": "${packages}/User/CiscoCollab.sublime-settings"
+        }
+    }
+]
